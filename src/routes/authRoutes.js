@@ -8,6 +8,10 @@ const {
   resetPassword,
 } = require("../controllers/authController");
 
+const {
+  googleLogin,
+} = require("../controllers/googleAuthController");
+
 // Register
 router.post("/register", register);
 
@@ -25,5 +29,12 @@ router.post(
   "/reset-password/:token",
   resetPassword
 );
+
+// Google Login
+router.post(
+  "/google",
+  googleLogin
+);
+
 
 module.exports = router;
