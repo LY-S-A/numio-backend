@@ -70,7 +70,7 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow Postman, mobile apps, curl, etc.
+      // Allow Postman, curl, mobile apps, etc.
       if (!origin) {
         return callback(null, true);
       }
@@ -93,7 +93,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // ================= ROOT =================
 app.get("/", (req, res) => {
-  res.json({
+  res.status(200).json({
     success: true,
     message: "RealSMS API is running 🚀",
   });
@@ -110,11 +110,11 @@ app.use((req, res) => {
   });
 });
 
-// ================= ERROR HANDLER =================
+// ================= GLOBAL ERROR HANDLER =================
 app.use((err, req, res, next) => {
   console.error(err);
 
-  res.status(500).json({
+  res.status(err.status || 500).json({
     success: false,
     message: err.message || "Internal Server Error",
   });
@@ -123,18 +123,18 @@ app.use((err, req, res, next) => {
 // ================= START SERVER =================
 const PORT = process.env.PORT || 5000;
 
-(async () => {
+const startServer = async () => {
   try {
     await connectDB();
-
-    console.log("✅ MongoDB Connected");
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
   } catch (err) {
-    console.error("❌ MongoDB Connection Failed");
+    console.error("❌ Failed to start server");
     console.error(err);
     process.exit(1);
   }
-})();
+};
+
+startServer();
