@@ -6,6 +6,7 @@ const cors = require("cors");
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
+const flutterwaveRoutes = require("./routes/flutterwaveRoutes");
 
 const app = express();
 
@@ -50,6 +51,7 @@ app.get("/", (req, res) => {
 // ================= ROUTES =================
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
+app.use("/api/flutterwave", flutterwaveRoutes);
 
 // ================= 404 =================
 app.use((req, res) => {
