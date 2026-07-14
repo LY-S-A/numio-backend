@@ -7,10 +7,10 @@ const {
   verifyPayment,
 } = require("../controllers/flutterwaveController");
 
-const auth = require("../middleware/authMiddleware");
+const { protect } = require("../middleware/authMiddleware");
 
 // Initialize Flutterwave payment
-router.post("/init", auth, initializePayment);
+router.post("/init", protect, initializePayment);
 
 // Flutterwave redirect after payment
 router.get("/verify", verifyPayment);
