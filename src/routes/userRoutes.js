@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const auth = require("../middleware/authMiddleware");
+const { protect } = require("../middleware/authMiddleware");
 
 const {
   getProfile,
@@ -10,12 +10,12 @@ const {
 } = require("../controllers/userController");
 
 // Get authenticated user's profile
-router.get("/profile", auth, getProfile);
+router.get("/profile", protect, getProfile);
 
 // Get wallet balance
-router.get("/wallet", auth, getWalletBalance);
+router.get("/wallet", protect, getWalletBalance);
 
 // Refresh wallet balance
-router.get("/wallet/refresh", auth, refreshWallet);
+router.get("/wallet/refresh", protect, refreshWallet);
 
 module.exports = router;
