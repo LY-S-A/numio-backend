@@ -24,7 +24,7 @@ exports.initializePayment = async (req, res) => {
       "https://api.paystack.co/transaction/initialize",
       {
         email: req.user.email,
-        amount: Number(amount) * 100, // Convert to Kobo
+        amount: Number(amount) * 100, // Kobo
         callback_url: `${BACKEND_URL}/api/paystack/verify`,
       },
       {
@@ -43,7 +43,9 @@ exports.initializePayment = async (req, res) => {
       amount: Number(amount),
       currency: "NGN",
       provider: "PAYSTACK",
+      type: "DEPOSIT",
       status: "PENDING",
+      description: "Wallet Funding",
     });
 
     return res.json({
@@ -75,7 +77,7 @@ exports.verifyPayment = async (req, res) => {
       return res.redirect(`${FRONTEND_URL}/fund-cancel`);
     }
 
-    // Prevent duplicate wallet credit
+    // Already processed
     if (transaction.status === "SUCCESS") {
       return res.redirect(`${FRONTEND_URL}/fund-success`);
     }
@@ -91,7 +93,7 @@ exports.verifyPayment = async (req, res) => {
 
     const payment = response.data.data;
 
-    // Payment failed
+    // Verify payment status
     if (payment.status !== "success") {
       transaction.status = "FAILED";
       await transaction.save();
@@ -115,20 +117,44 @@ exports.verifyPayment = async (req, res) => {
       return res.redirect(`${FRONTEND_URL}/fund-cancel`);
     }
 
-    // Credit wallet atomically
-    await User.findByIdAndUpdate(
+    // Verify currency
+    if (payment.currency !== "NGN") {
+      transaction.status = "FAILED";
+      await transaction.save();
+
+      return res.redirect(`${FRONTEND_URL}/fund-cancel`);
+    }
+
+    // Credit wallet
+    const user = await User.findByIdAndUpdate(
       transaction.user,
       {
         $inc: {
-          walletBalanceNGN: transaction.amount,
+          wallet: transaction.amount,
         },
       },
-      { new: true }
+      {
+        new: true,
+      }
     );
 
-    // Mark transaction successful
+    if (!user) {
+      transaction.status = "FAILED";
+      await transaction.save();
+
+      return res.redirect(`${FRONTEND_URL}/fund-cancel`);
+    }
+
+    // Save gateway details
     transaction.status = "SUCCESS";
+    transaction.gatewayTransactionId = payment.id?.toString() || null;
+    transaction.paymentMethod = payment.channel || "Paystack";
+
     await transaction.save();
+
+    console.log(
+      `Wallet funded successfully: ${user.email} -> ₦${transaction.amount}`
+    );
 
     return res.redirect(`${FRONTEND_URL}/fund-success`);
   } catch (error) {
