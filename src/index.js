@@ -7,6 +7,7 @@ const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const flutterwaveRoutes = require("./routes/flutterwaveRoutes");
+const paystackRoutes = require("./routes/paystackRoutes");
 
 const app = express();
 
@@ -52,6 +53,8 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/flutterwave", flutterwaveRoutes);
+app.use("/api/paystack", paystackRoutes);
+
 
 // ================= 404 =================
 app.use((req, res) => {
