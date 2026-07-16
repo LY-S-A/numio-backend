@@ -1,11 +1,11 @@
 const express = require("express");
 const router = express.Router();
 
-const { protect } = require("../middleware/authMiddleware");
-
 const {
   getRecentDeposits,
-} = require("../controllers/walletController");
+} = require("../controllers/transactionController");
+
+const { protect } = require("../middleware/authMiddleware");
 
 router.get(
   "/deposits",
