@@ -17,7 +17,7 @@ router.get(
 router.get(
   "/deposits-history",
   protect,
-  getRecentDeposits
+  getDepositHistory
 );
 
 module.exports = router;
