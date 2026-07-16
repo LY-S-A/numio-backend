@@ -25,3 +25,36 @@ exports.getRecentDeposits = async (req, res) => {
     });
   }
 };
+
+exports.getDepositHistory = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const deposits = await Transaction.find({
+      user: userId,
+      type: "deposit",
+    })
+      .sort({ createdAt: -1 })
+      .select(
+        "reference amount provider status createdAt paymentMethod"
+      );
+
+    const totalDeposited = deposits
+      .filter((tx) => tx.status === "success")
+      .reduce((sum, tx) => sum + tx.amount, 0);
+
+    res.status(200).json({
+      success: true,
+      totalDeposited,
+      total: deposits.length,
+      deposits,
+    });
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to fetch deposit history.",
+    });
+  }
+};
