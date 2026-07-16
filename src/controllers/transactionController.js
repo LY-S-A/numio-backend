@@ -28,31 +28,29 @@ exports.getRecentDeposits = async (req, res) => {
 
 exports.getDepositHistory = async (req, res) => {
   try {
-    const userId = req.user.id;
-
     const deposits = await Transaction.find({
-      user: userId,
-      type: "deposit",
+      user: req.user.id,
+      type: "DEPOSIT",
     })
       .sort({ createdAt: -1 })
       .select(
-        "reference amount provider status createdAt paymentMethod"
+        "reference amount provider status paymentMethod description createdAt"
       );
 
     const totalDeposited = deposits
-      .filter((tx) => tx.status === "success")
+      .filter((tx) => tx.status === "SUCCESS")
       .reduce((sum, tx) => sum + tx.amount, 0);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       totalDeposited,
       total: deposits.length,
       deposits,
     });
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    console.error("Deposit History Error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Unable to fetch deposit history.",
     });
