@@ -4,12 +4,12 @@ exports.getRecentDeposits = async (req, res) => {
   try {
     const deposits = await Transaction.find({
       user: req.user.id,
-      type: "deposit",
+      type: "DEPOSIT",
     })
       .sort({ createdAt: -1 })
       .limit(5)
       .select(
-        "amount gateway status reference createdAt"
+        "reference amount provider status paymentMethod description createdAt"
       );
 
     return res.status(200).json({
@@ -17,11 +17,11 @@ exports.getRecentDeposits = async (req, res) => {
       deposits,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Recent Deposits Error:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch recent deposits.",
+      message: "Unable to fetch recent deposits.",
     });
   }
 };
