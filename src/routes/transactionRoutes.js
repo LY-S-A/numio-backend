@@ -8,7 +8,7 @@ const {
 const { protect } = require("../middleware/authMiddleware");
 
 router.get(
-  "/deposits",
+  "/recent-deposits",
   protect,
   getRecentDeposits
 );
