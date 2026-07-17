@@ -59,25 +59,22 @@ exports.getServices = async (req, res) => {
         //     count: products[service]?.Qty || 0
         // }));
 
-        const services = Object.entries(products).map(([name, data]) => ({
-    name,
-    price:
+      const services = Object.entries(products).map(([name, data]) => {
+    const usd =
         Number(
             data.Price ??
             data.price ??
             data.Retail ??
-            data.retail ??
             0
-        ),
-    count: Number(data.Qty ?? data.qty ?? 0),
-}));
+        );
 
-        return res.status(200).json({
-            success: true,
-            total: services.length,
-            services
-        });
-
+    return {
+        name,
+        usdPrice: usd,
+        ngnPrice: convertPriceToNaira(usd),
+        count: Number(data.Qty ?? 0),
+    };
+});
 
     } catch (error) {
 
