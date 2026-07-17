@@ -85,6 +85,54 @@ exports.getServices = async (req, res) => {
 };
 
 /*
+=========================
+GET COUNTRIES
+=========================
+*/
+
+exports.getCountries = async (req, res) => {
+
+    try {
+
+        const response = await fiveSim.get(
+            "/guest/countries"
+        );
+
+
+        const countries = Object.keys(response.data).map(
+            (key) => ({
+                name: response.data[key].name,
+                code: key
+            })
+        );
+
+
+        return res.status(200).json({
+            success: true,
+            total: countries.length,
+            countries
+        });
+
+
+    } catch (error) {
+
+        console.error(
+            error.response?.data || error.message
+        );
+
+
+        return res.status(500).json({
+            success:false,
+            message:
+                error.response?.data?.message ||
+                "Unable to fetch countries."
+        });
+
+    }
+
+};
+
+/*
 =====================================================
 BUY NUMBER
 =====================================================
