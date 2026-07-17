@@ -25,6 +25,65 @@ const convertPriceToNaira = (price) => {
 
     return Math.ceil(amount + (amount * markup) / 100);
 };
+
+/*
+===========================
+GET SERVICES
+===========================
+*/
+
+exports.getServices = async (req, res) => {
+    try {
+
+        const { country } = req.query;
+
+        if (!country) {
+            return res.status(400).json({
+                success: false,
+                message: "Country is required."
+            });
+        }
+
+
+        const response = await fiveSim.get(
+            `/guest/products/${country}/any`
+        );
+
+
+        const products = response.data;
+
+
+        const services = Object.keys(products).map((service) => ({
+            name: service,
+            price: products[service]?.price || 0,
+            count: products[service]?.Qty || 0
+        }));
+
+
+        return res.status(200).json({
+            success: true,
+            total: services.length,
+            services
+        });
+
+
+    } catch (error) {
+
+        console.error(
+            error.response?.data || error.message
+        );
+
+
+        return res.status(500).json({
+            success: false,
+            message:
+                error.response?.data?.message ||
+                "Unable to fetch services."
+        });
+
+    }
+};
+
 /*
 =====================================================
 BUY NUMBER
