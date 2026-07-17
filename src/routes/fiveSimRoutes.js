@@ -12,35 +12,50 @@ const {
   getOrder,
   deleteOrder,
   getProfile,
+  getServices,
 } = require("../controllers/fiveSimController");
 
 const { protect } = require("../middleware/authMiddleware");
 
+
+// Get available services
+router.get("/services", protect, getServices);
+
+
 // Buy a new number
 router.post("/buy", protect, buyNumber);
+
 
 // Refresh SMS for an order
 router.get("/refresh/:orderId", protect, refreshSMS);
 
+
 // Finish an order
 router.post("/finish/:orderId", protect, finishOrder);
+
 
 // Cancel an order
 router.post("/cancel/:orderId", protect, cancelOrder);
 
+
 // Get active orders
 router.get("/active", protect, getActiveOrders);
+
 
 // Get order history
 router.get("/history", protect, getOrderHistory);
 
+
 // Get a single order
 router.get("/order/:orderId", protect, getOrder);
+
 
 // Delete a completed/cancelled order
 router.delete("/order/:orderId", protect, deleteOrder);
 
+
 // Get 5SIM account profile
 router.get("/profile", protect, getProfile);
+
 
 module.exports = router;
