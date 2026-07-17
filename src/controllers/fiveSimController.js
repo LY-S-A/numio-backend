@@ -91,7 +91,6 @@ GET COUNTRIES
 */
 
 exports.getCountries = async (req, res) => {
-
     try {
 
         const response = await fiveSim.get(
@@ -101,7 +100,11 @@ exports.getCountries = async (req, res) => {
 
         const countries = Object.keys(response.data).map(
             (key) => ({
-                name: response.data[key].name,
+                name:
+                    response.data[key].text ||
+                    response.data[key].name ||
+                    key,
+
                 code: key
             })
         );
@@ -129,7 +132,6 @@ exports.getCountries = async (req, res) => {
         });
 
     }
-
 };
 
 /*
