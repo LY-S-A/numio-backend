@@ -18,8 +18,8 @@ const generateReference = () =>
     `NUMIO-${Date.now()}-${uuid().slice(0, 8).toUpperCase()}`;
 
 const convertPriceToNaira = (price) => {
-    const rate = Number(process.env.USD_TO_NGN_RATE || 1700);
-    const markup = Number(process.env.MARKUP_PERCENT || 20);
+    const rate = Number(process.env.USD_TO_NGN_RATE || 1500);
+    const markup = Number(process.env.MARKUP_PERCENT || 1000);
 
     const amount = Number(price) * rate;
 
