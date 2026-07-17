@@ -53,12 +53,24 @@ exports.getServices = async (req, res) => {
         const products = response.data;
 
 
-        const services = Object.keys(products).map((service) => ({
-            name: service,
-            price: products[service]?.price || 0,
-            count: products[service]?.Qty || 0
-        }));
+        // const services = Object.keys(products).map((service) => ({
+        //     name: service,
+        //     price: products[service]?.price || 0,
+        //     count: products[service]?.Qty || 0
+        // }));
 
+        const services = Object.entries(products).map(([name, data]) => ({
+    name,
+    price:
+        Number(
+            data.Price ??
+            data.price ??
+            data.Retail ??
+            data.retail ??
+            0
+        ),
+    count: Number(data.Qty ?? data.qty ?? 0),
+}));
 
         return res.status(200).json({
             success: true,
