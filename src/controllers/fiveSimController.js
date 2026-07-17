@@ -19,7 +19,7 @@ const generateReference = () =>
 
 const convertPriceToNaira = (price) => {
     const rate = Number(process.env.USD_TO_NGN_RATE || 1500);
-    const markup = Number(process.env.MARKUP_PERCENT || 1000);
+    const markup = Number(process.env.MARKUP_PERCENT || 100);
 
     const amount = Number(price) * rate;
 
