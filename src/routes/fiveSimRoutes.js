@@ -13,6 +13,7 @@ const {
   deleteOrder,
   getProfile,
   getServices,
+  getCountries,
 } = require("../controllers/fiveSimController");
 
 const { protect } = require("../middleware/authMiddleware");
@@ -21,6 +22,8 @@ const { protect } = require("../middleware/authMiddleware");
 // Get available services
 router.get("/services", protect, getServices);
 
+// Get all countries
+router.get("/countries", protect, getCountries);
 
 // Buy a new number
 router.post("/buy", protect, buyNumber);
