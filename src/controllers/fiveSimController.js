@@ -136,6 +136,132 @@ const getDisplayPrice = (products) => {
 //     }
 // };
 
+// exports.getServices = async (req, res) => {
+//     try {
+//         const { country } = req.query;
+
+//         if (!country) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Country is required.",
+//             });
+//         }
+
+//         // Fetch all service prices for the country
+//         const response = await fiveSim.get(
+//             `/guest/prices?country=${country}`
+//         );
+
+//         const countryPrices =
+//             response.data[country] || response.data;
+
+//         if (!countryPrices) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: "No services found for this country.",
+//             });
+//         }
+
+//         const services = [];
+
+//         // If highest price is at least 100% higher than cheapest,
+//         // use the highest price instead.
+//         const PRICE_VARIANCE_THRESHOLD = 1;
+
+//         for (const [serviceName, operators] of Object.entries(countryPrices)) {
+
+//             const prices = [];
+//             let totalCount = 0;
+
+//             for (const [operator, info] of Object.entries(operators)) {
+
+//                 const qty = Number(
+//                     info.count ??
+//                     info.Count ??
+//                     info.qty ??
+//                     0
+//                 );
+
+//                 if (qty <= 0) continue;
+
+//                 const usd = Number(
+//                     info.cost ??
+//                     info.Cost ??
+//                     info.price ??
+//                     info.Price ??
+//                     0
+//                 );
+
+//                 if (!usd) continue;
+
+//                 prices.push({
+//                     operator,
+//                     usd,
+//                     qty,
+//                 });
+
+//                 totalCount += qty;
+//             }
+
+//             if (!prices.length) continue;
+
+//             // Lowest -> Highest
+//             prices.sort((a, b) => a.usd - b.usd);
+
+//             const cheapest = prices[0];
+//             const highest = prices[prices.length - 1];
+
+//             // Percentage difference
+//             const increase =
+//                 (highest.usd - cheapest.usd) / cheapest.usd;
+
+//             // Choose display price
+//             const display =
+//                 increase >= PRICE_VARIANCE_THRESHOLD
+//                     ? highest
+//                     : cheapest;
+
+//             services.push({
+//                 name: serviceName,
+//                 operator: display.operator,
+//                 usdPrice: display.usd,
+//                 ngnPrice: convertPriceToNaira(display.usd),
+//                 count: totalCount,
+
+//                 // Optional debugging values
+//                 lowestUsdPrice: cheapest.usd,
+//                 highestUsdPrice: highest.usd,
+//                 variancePercent: Number(
+//                     (increase * 100).toFixed(2)
+//                 ),
+//             });
+//         }
+
+//         services.sort((a, b) =>
+//             a.name.localeCompare(b.name)
+//         );
+
+//         return res.status(200).json({
+//             success: true,
+//             total: services.length,
+//             services,
+//         });
+
+//     } catch (error) {
+//         console.error(
+//             error.response?.data || error.message
+//         );
+
+//         return res.status(500).json({
+//             success: false,
+//             message:
+//                 error.response?.data?.message ||
+//                 error.message ||
+//                 "Unable to fetch services.",
+//         });
+//     }
+// };
+
 exports.getServices = async (req, res) => {
     try {
         const { country } = req.query;
@@ -147,7 +273,7 @@ exports.getServices = async (req, res) => {
             });
         }
 
-        // Fetch all service prices for the country
+        // Fetch all prices for the selected country
         const response = await fiveSim.get(
             `/guest/prices?country=${country}`
         );
@@ -164,9 +290,14 @@ exports.getServices = async (req, res) => {
 
         const services = [];
 
-        // If highest price is at least 100% higher than cheapest,
-        // use the highest price instead.
-        const PRICE_VARIANCE_THRESHOLD = 1;
+        // Configurable thresholds
+        const PRICE_VARIANCE_THRESHOLD = Number(
+            process.env.PRICE_VARIANCE_THRESHOLD || 1 // 100%
+        );
+
+        const MIN_ABSOLUTE_DIFFERENCE = Number(
+            process.env.MIN_PRICE_DIFFERENCE || 2 // $2
+        );
 
         for (const [serviceName, operators] of Object.entries(countryPrices)) {
 
@@ -211,28 +342,38 @@ exports.getServices = async (req, res) => {
             const cheapest = prices[0];
             const highest = prices[prices.length - 1];
 
-            // Percentage difference
-            const increase =
+            // Percentage increase
+            const percentageIncrease =
                 (highest.usd - cheapest.usd) / cheapest.usd;
 
-            // Choose display price
+            // Absolute difference
+            const absoluteDifference =
+                highest.usd - cheapest.usd;
+
+            // Show highest price only when BOTH conditions are met
             const display =
-                increase >= PRICE_VARIANCE_THRESHOLD
+                percentageIncrease >= PRICE_VARIANCE_THRESHOLD &&
+                absoluteDifference >= MIN_ABSOLUTE_DIFFERENCE
                     ? highest
                     : cheapest;
 
             services.push({
                 name: serviceName,
                 operator: display.operator,
+
                 usdPrice: display.usd,
                 ngnPrice: convertPriceToNaira(display.usd),
+
                 count: totalCount,
 
-                // Optional debugging values
+                // Useful metadata
                 lowestUsdPrice: cheapest.usd,
                 highestUsdPrice: highest.usd,
-                variancePercent: Number(
-                    (increase * 100).toFixed(2)
+                percentageIncrease: Number(
+                    (percentageIncrease * 100).toFixed(2)
+                ),
+                absoluteDifference: Number(
+                    absoluteDifference.toFixed(2)
                 ),
             });
         }
