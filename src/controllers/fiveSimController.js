@@ -26,72 +26,32 @@ const convertPriceToNaira = (price) => {
     return Math.ceil(amount + (amount * markup) / 100);
 };
 
-/*
-===========================
-GET SERVICES
-===========================
-*/
+const getDisplayPrice = (products) => {
+    const prices = Object.values(products)
+        .map((item) =>
+            Number(
+                item.Price ??
+                item.price ??
+                item.Retail ??
+                item.retail ??
+                0
+            )
+        )
+        .filter((price) => price > 0);
 
-// exports.getServices = async (req, res) => {
-//     try {
+    if (!prices.length) return 0;
 
-//         const { country } = req.query;
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
 
-//         if (!country) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "Country is required."
-//             });
-//         }
+    const minNgn = convertPriceToNaira(min);
+    const maxNgn = convertPriceToNaira(max);
 
+    // If price gap is greater than ₦1,000,
+    // display the highest price instead.
+    return maxNgn - minNgn > 1000 ? max : min;
+};
 
-//         const response = await fiveSim.get(
-//             `/guest/products/${country}/any`
-//         );
-
-
-//         const products = response.data;
-
-
-//         // const services = Object.keys(products).map((service) => ({
-//         //     name: service,
-//         //     price: products[service]?.price || 0,
-//         //     count: products[service]?.Qty || 0
-//         // }));
-
-//       const services = Object.entries(products).map(([name, data]) => {
-//     const usd =
-//         Number(
-//             data.Price ??
-//             data.price ??
-//             data.Retail ??
-//             0
-//         );
-
-//     return {
-//         name,
-//         usdPrice: usd,
-//         ngnPrice: convertPriceToNaira(usd),
-//         count: Number(data.Qty ?? 0),
-//     };
-// });
-
-//     } catch (error) {
-
-//         console.error(
-//             error.response?.data || error.message
-//         );
-
-
-//         return res.status(500).json({
-//             success: false,
-//             message:
-//                 error.response?.data?.message ||
-//                 "Unable to fetch services."
-//         });
-
-//     }
-// };
 
 exports.getServices = async (req, res) => {
     try {
@@ -108,30 +68,64 @@ exports.getServices = async (req, res) => {
             `/guest/products/${country}/any`
         );
 
+        // const products = response.data;
+
+        // const services = Object.entries(products).map(([name, data]) => {
+        //     const usd = Number(
+        //         data.Price ??
+        //         data.price ??
+        //         data.Retail ??
+        //         data.retail ??
+        //         0
+        //     );
+
+        //     return {
+        //         name,
+        //         usdPrice: usd,
+        //         ngnPrice: convertPriceToNaira(usd),
+        //         count: Number(data.Qty ?? data.qty ?? 0),
+        //     };
+        // });
+
+        // return res.status(200).json({
+        //     success: true,
+        //     total: services.length,
+        //     services,
+        // });
+
         const products = response.data;
 
-        const services = Object.entries(products).map(([name, data]) => {
-            const usd = Number(
-                data.Price ??
-                data.price ??
-                data.Retail ??
-                data.retail ??
-                0
-            );
+const displayUsd = getDisplayPrice(products);
+const displayNgn = convertPriceToNaira(displayUsd);
 
-            return {
-                name,
-                usdPrice: usd,
-                ngnPrice: convertPriceToNaira(usd),
-                count: Number(data.Qty ?? data.qty ?? 0),
-            };
-        });
+const services = Object.entries(products).map(([name, data]) => {
+    const usd = Number(
+        data.Price ??
+        data.price ??
+        data.Retail ??
+        data.retail ??
+        0
+    );
 
-        return res.status(200).json({
-            success: true,
-            total: services.length,
-            services,
-        });
+    return {
+        name,
+        usdPrice: usd,
+        ngnPrice: convertPriceToNaira(usd),
+        count: Number(data.Qty ?? data.qty ?? 0),
+    };
+});
+
+return res.status(200).json({
+    success: true,
+    total: services.length,
+
+    estimatedPrice: {
+        usd: displayUsd,
+        ngn: displayNgn,
+    },
+
+    services,
+});
 
     } catch (error) {
         console.error(error.response?.data || error.message);
@@ -248,7 +242,21 @@ exports.buyNumber = async (req, res) => {
             throw new Error("Unable to purchase number.");
         }
 
-        const amount = convertPriceToNaira(order.price);
+        // const amount = convertPriceToNaira(order.price);
+
+        /*
+===========================
+CALCULATE DISPLAY PRICE
+===========================
+*/
+
+const productsResponse = await fiveSim.get(
+    `/guest/products/${country}/any`
+);
+
+const displayUsd = getDisplayPrice(productsResponse.data);
+
+const amount = convertPriceToNaira(displayUsd);
 
         if (user.wallet < amount) {
             await session.abortTransaction();
@@ -934,3 +942,5 @@ exports.syncOrders = async () => {
     }
 
 };
+
+
