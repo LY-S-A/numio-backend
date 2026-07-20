@@ -53,6 +53,71 @@ const getDisplayPrice = (products) => {
 };
 
 
+// exports.getServices = async (req, res) => {
+//     try {
+//         const { country } = req.query;
+
+//         if (!country) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Country is required."
+//             });
+//         }
+
+//         const response = await fiveSim.get(
+//             `/guest/products/${country}/any`
+//         );
+
+//         const products = response.data;
+
+// const displayUsd = getDisplayPrice(products);
+// const displayNgn = convertPriceToNaira(displayUsd);
+
+// const services = Object.entries(products).map(([name, data]) => {
+//     const usd = Number(
+//         data.Price ??
+//         data.price ??
+//         data.Retail ??
+//         data.retail ??
+//         0
+//     );
+
+//     return {
+//     name,
+//     usdPrice: usd,
+//     ngnPrice: convertPriceToNaira(usd),
+
+//     // Same amount you'll charge in buyNumber()
+//     estimatedPrice: displayNgn,
+
+//     count: Number(data.Qty ?? data.qty ?? 0),
+// };
+// });
+
+// return res.status(200).json({
+//     success: true,
+//     total: services.length,
+
+//     estimatedPrice: {
+//         usd: displayUsd,
+//         ngn: displayNgn,
+//     },
+
+//     services,
+// });
+
+//     } catch (error) {
+//         console.error(error.response?.data || error.message);
+
+//         return res.status(500).json({
+//             success: false,
+//             message:
+//                 error.response?.data?.message ||
+//                 "Unable to fetch services."
+//         });
+//     }
+// };
+
 exports.getServices = async (req, res) => {
     try {
         const { country } = req.query;
@@ -60,84 +125,70 @@ exports.getServices = async (req, res) => {
         if (!country) {
             return res.status(400).json({
                 success: false,
-                message: "Country is required."
+                message: "Country is required.",
             });
         }
 
-        const response = await fiveSim.get(
-            `/guest/products/${country}/any`
+        // Fetch all operators for the country
+        const operatorsRes = await fiveSim.get(
+            `/guest/operators/${country}`
         );
 
-        // const products = response.data;
+        const operators = operatorsRes.data || [];
 
-        // const services = Object.entries(products).map(([name, data]) => {
-        //     const usd = Number(
-        //         data.Price ??
-        //         data.price ??
-        //         data.Retail ??
-        //         data.retail ??
-        //         0
-        //     );
+        const serviceMap = {};
 
-        //     return {
-        //         name,
-        //         usdPrice: usd,
-        //         ngnPrice: convertPriceToNaira(usd),
-        //         count: Number(data.Qty ?? data.qty ?? 0),
-        //     };
-        // });
+        // Loop through every operator
+        for (const operator of operators) {
+            try {
+                const { data: products } = await fiveSim.get(
+                    `/guest/products/${country}/${operator}`
+                );
 
-        // return res.status(200).json({
-        //     success: true,
-        //     total: services.length,
-        //     services,
-        // });
+                for (const [name, item] of Object.entries(products)) {
+                    const qty = Number(item.Qty ?? item.qty ?? 0);
 
-        const products = response.data;
+                    if (qty <= 0) continue;
 
-const displayUsd = getDisplayPrice(products);
-const displayNgn = convertPriceToNaira(displayUsd);
+                    const usd = Number(
+                        item.Price ??
+                        item.price ??
+                        item.Retail ??
+                        item.retail ??
+                        0
+                    );
 
-const services = Object.entries(products).map(([name, data]) => {
-    const usd = Number(
-        data.Price ??
-        data.price ??
-        data.Retail ??
-        data.retail ??
-        0
-    );
+                    if (!usd) continue;
 
-    // return {
-    //     name,
-    //     usdPrice: usd,
-    //     ngnPrice: convertPriceToNaira(usd),
-    //     count: Number(data.Qty ?? data.qty ?? 0),
-    // };
+                    // Keep the cheapest REAL operator
+                    if (
+                        !serviceMap[name] ||
+                        usd < serviceMap[name].usdPrice
+                    ) {
+                        serviceMap[name] = {
+                            name,
+                            operator,
+                            usdPrice: usd,
+                            ngnPrice: convertPriceToNaira(usd),
+                            count: qty,
+                        };
+                    }
+                }
+            } catch (err) {
+                // Ignore operators that fail
+                continue;
+            }
+        }
 
-    return {
-    name,
-    usdPrice: usd,
-    ngnPrice: convertPriceToNaira(usd),
+        const services = Object.values(serviceMap).sort((a, b) =>
+            a.name.localeCompare(b.name)
+        );
 
-    // Same amount you'll charge in buyNumber()
-    estimatedPrice: displayNgn,
-
-    count: Number(data.Qty ?? data.qty ?? 0),
-};
-});
-
-return res.status(200).json({
-    success: true,
-    total: services.length,
-
-    estimatedPrice: {
-        usd: displayUsd,
-        ngn: displayNgn,
-    },
-
-    services,
-});
-
+        return res.status(200).json({
+            success: true,
+            total: services.length,
+            services,
+        });
     } catch (error) {
         console.error(error.response?.data || error.message);
 
@@ -145,7 +196,7 @@ return res.status(200).json({
             success: false,
             message:
                 error.response?.data?.message ||
-                "Unable to fetch services."
+                "Unable to fetch services.",
         });
     }
 };
