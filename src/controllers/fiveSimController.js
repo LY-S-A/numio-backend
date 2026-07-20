@@ -249,187 +249,6 @@ BUY NUMBER
 =====================================================
 */
 
-// exports.buyNumber = async (req, res) => {
-//     const session = await mongoose.startSession();
-
-//     try {
-//         session.startTransaction();
-
-//         const userId = req.user.id;
-//         const { service, country } = req.body;
-
-//         if (!service || !country) {
-//             await session.abortTransaction();
-//             session.endSession();
-
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "Service and country are required.",
-//             });
-//         }
-
-//         const user = await User.findById(userId).session(session);
-
-//         if (!user) {
-//             await session.abortTransaction();
-//             session.endSession();
-
-//             return res.status(404).json({
-//                 success: false,
-//                 message: "User not found.",
-//             });
-//         }
-
-//         /*
-//         ===========================
-//         BUY FROM 5SIM
-//         ===========================
-//         */
-
-//         const response = await fiveSim.get(
-//             `/user/buy/activation/${country}/any/${service}`
-//         );
-
-//         const order = response.data;
-
-//         if (!order || !order.id) {
-//             throw new Error("Unable to purchase number.");
-//         }
-
-//         // const amount = convertPriceToNaira(order.price);
-
-//         /*
-// ===========================
-// CALCULATE DISPLAY PRICE
-// ===========================
-// */
-
-// const productsResponse = await fiveSim.get(
-//     `/guest/products/${country}/any`
-// );
-
-// const displayUsd = getDisplayPrice(productsResponse.data);
-
-// const amount = convertPriceToNaira(displayUsd);
-
-//         if (user.wallet < amount) {
-//             await session.abortTransaction();
-//             session.endSession();
-
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "Insufficient wallet balance.",
-//             });
-//         }
-
-//         /*
-//         ===========================
-//         DEDUCT WALLET
-//         ===========================
-//         */
-
-//         user.wallet -= amount;
-
-//         await user.save({ session });
-
-//         /*
-//         ===========================
-//         SAVE TRANSACTION
-//         ===========================
-//         */
-
-//         const transaction = await Transaction.create(
-//             [
-//                 {
-//                     user: user._id,
-
-//                     reference: generateReference(),
-
-//                     amount,
-
-//                     currency: "NGN",
-
-//                     provider: "SYSTEM",
-
-//                     type: "PURCHASE",
-
-//                     status: "SUCCESS",
-
-//                     gatewayTransactionId: String(order.id),
-
-//                     paymentMethod: "Wallet",
-
-//                     description: `Purchased ${service} number (${country})`,
-//                 },
-//             ],
-//             { session }
-//         );
-
-//         /*
-//         ===========================
-//         SAVE ORDER
-//         ===========================
-//         */
-
-//         const savedOrder = await NumberOrder.create(
-//             [
-//                 {
-//                     user: user._id,
-
-//                     orderId: order.id,
-
-//                     phone: order.phone,
-
-//                     country,
-
-//                     service,
-
-//                     operator: order.operator,
-
-//                     price: amount,
-
-//                     expires: order.expires
-//                         ? new Date(order.expires)
-//                         : null,
-
-//                     status: "PENDING",
-
-//                     sms: [],
-//                 },
-//             ],
-//             { session }
-//         );
-
-//         await session.commitTransaction();
-//         session.endSession();
-
-//         return res.status(200).json({
-//             success: true,
-
-//             message: "Number purchased successfully.",
-
-//             wallet: user.wallet,
-
-//             order: savedOrder[0],
-
-//             transaction: transaction[0],
-//         });
-//     } catch (error) {
-//         await session.abortTransaction();
-//         session.endSession();
-
-//         console.error(error.response?.data || error.message);
-
-//         return res.status(500).json({
-//             success: false,
-//             message:
-//                 error.response?.data?.message ||
-//                 error.message ||
-//                 "Unable to purchase number.",
-//         });
-//     }
-// };
-
 exports.buyNumber = async (req, res) => {
     const session = await mongoose.startSession();
 
@@ -780,12 +599,107 @@ CANCEL ORDER
 =====================================================
 */
 
-exports.cancelOrder = async (req, res) => {
+// exports.cancelOrder = async (req, res) => {
 
+//     const session = await mongoose.startSession();
+
+//     try {
+
+//         session.startTransaction();
+
+//         const userId = req.user.id;
+//         const { orderId } = req.params;
+
+//         const order = await NumberOrder.findOne({
+//             _id: orderId,
+//             user: userId,
+//         }).session(session);
+
+//         if (!order) {
+
+//             await session.abortTransaction();
+//             session.endSession();
+
+//             return res.status(404).json({
+//                 success: false,
+//                 message: "Order not found.",
+//             });
+
+//         }
+
+//         await fiveSim.get(
+//             `/user/cancel/${order.orderId}`
+//         );
+
+//         order.status = "CANCELLED";
+
+//         await order.save({ session });
+
+//         /*
+//         ===========================
+//         OPTIONAL REFUND
+//         ===========================
+
+//         Uncomment this block if your
+//         business logic refunds cancelled
+//         numbers.
+//         */
+
+//         /*
+//         const user = await User.findById(userId).session(session);
+
+//         user.wallet += order.price;
+
+//         await user.save({ session });
+
+//         await Transaction.create(
+//             [{
+//                 user: user._id,
+//                 reference: generateReference(),
+//                 amount: order.price,
+//                 currency: "NGN",
+//                 provider: "SYSTEM",
+//                 type: "REFUND",
+//                 status: "SUCCESS",
+//                 paymentMethod: "Wallet",
+//                 description: `Refund for cancelled number`,
+//             }],
+//             { session }
+//         );
+//         */
+
+//         await session.commitTransaction();
+
+//         session.endSession();
+
+//         return res.json({
+//             success: true,
+//             message: "Order cancelled successfully.",
+//         });
+
+//     } catch (error) {
+
+//         await session.abortTransaction();
+
+//         session.endSession();
+
+//         console.error(error.response?.data || error.message);
+
+//         return res.status(500).json({
+//             success: false,
+//             message:
+//                 error.response?.data?.message ||
+//                 "Unable to cancel order.",
+//         });
+
+//     }
+
+// };
+
+exports.cancelOrder = async (req, res) => {
     const session = await mongoose.startSession();
 
     try {
-
         session.startTransaction();
 
         const userId = req.user.id;
@@ -797,7 +711,6 @@ exports.cancelOrder = async (req, res) => {
         }).session(session);
 
         if (!order) {
-
             await session.abortTransaction();
             session.endSession();
 
@@ -805,12 +718,58 @@ exports.cancelOrder = async (req, res) => {
                 success: false,
                 message: "Order not found.",
             });
-
         }
+
+        /*
+        ===========================
+        VALIDATIONS
+        ===========================
+        */
+
+        if (
+            order.status === "CANCELLED" ||
+            order.status === "FINISHED" ||
+            order.status === "EXPIRED"
+        ) {
+            await session.abortTransaction();
+            session.endSession();
+
+            return res.status(400).json({
+                success: false,
+                message: `Order is already ${order.status.toLowerCase()}.`,
+            });
+        }
+
+        // Don't refund if an SMS has already been received
+        if (
+            order.status === "RECEIVED" ||
+            (order.sms && order.sms.length > 0)
+        ) {
+            await session.abortTransaction();
+            session.endSession();
+
+            return res.status(400).json({
+                success: false,
+                message:
+                    "This number has already received an SMS and cannot be cancelled.",
+            });
+        }
+
+        /*
+        ===========================
+        CANCEL ON 5SIM
+        ===========================
+        */
 
         await fiveSim.get(
             `/user/cancel/${order.orderId}`
         );
+
+        /*
+        ===========================
+        UPDATE ORDER
+        ===========================
+        */
 
         order.status = "CANCELLED";
 
@@ -818,65 +777,90 @@ exports.cancelOrder = async (req, res) => {
 
         /*
         ===========================
-        OPTIONAL REFUND
+        REFUND USER
         ===========================
-
-        Uncomment this block if your
-        business logic refunds cancelled
-        numbers.
         */
 
-        /*
         const user = await User.findById(userId).session(session);
+
+        if (!user) {
+            throw new Error("User not found.");
+        }
 
         user.wallet += order.price;
 
         await user.save({ session });
 
-        await Transaction.create(
-            [{
-                user: user._id,
-                reference: generateReference(),
-                amount: order.price,
-                currency: "NGN",
-                provider: "SYSTEM",
-                type: "REFUND",
-                status: "SUCCESS",
-                paymentMethod: "Wallet",
-                description: `Refund for cancelled number`,
-            }],
+        /*
+        ===========================
+        SAVE REFUND TRANSACTION
+        ===========================
+        */
+
+        const refundTransaction = await Transaction.create(
+            [
+                {
+                    user: user._id,
+
+                    reference: generateReference(),
+
+                    amount: order.price,
+
+                    currency: "NGN",
+
+                    provider: "SYSTEM",
+
+                    type: "REFUND",
+
+                    status: "SUCCESS",
+
+                    gatewayTransactionId: String(order.orderId),
+
+                    paymentMethod: "Wallet",
+
+                    description: `Refund for cancelled ${order.service} number`,
+                },
+            ],
             { session }
         );
+
+        /*
+        ===========================
+        COMMIT
+        ===========================
         */
 
         await session.commitTransaction();
-
         session.endSession();
 
-        return res.json({
+        return res.status(200).json({
             success: true,
-            message: "Order cancelled successfully.",
+            message: "Order cancelled successfully and wallet refunded.",
+
+            wallet: user.wallet,
+
+            refund: refundTransaction[0],
         });
 
     } catch (error) {
 
         await session.abortTransaction();
-
         session.endSession();
 
-        console.error(error.response?.data || error.message);
+        console.error(
+            error.response?.data || error.message
+        );
 
         return res.status(500).json({
             success: false,
             message:
                 error.response?.data?.message ||
+                error.message ||
                 "Unable to cancel order.",
         });
 
     }
-
 };
-
 
 /*
 =====================================================
