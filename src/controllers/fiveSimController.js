@@ -52,7 +52,6 @@ const getDisplayPrice = (products) => {
     return maxNgn - minNgn > 1000 ? max : min;
 };
 
-
 // exports.getServices = async (req, res) => {
 //     try {
 //         const { country } = req.query;
@@ -60,52 +59,70 @@ const getDisplayPrice = (products) => {
 //         if (!country) {
 //             return res.status(400).json({
 //                 success: false,
-//                 message: "Country is required."
+//                 message: "Country is required.",
 //             });
 //         }
 
+//         // Fetch all prices for the country
 //         const response = await fiveSim.get(
-//             `/guest/products/${country}/any`
+//             `/guest/prices?country=${country}`
 //         );
 
-//         const products = response.data;
+//         const countryPrices =
+//             response.data[country] || response.data;
 
-// const displayUsd = getDisplayPrice(products);
-// const displayNgn = convertPriceToNaira(displayUsd);
+//         const services = [];
 
-// const services = Object.entries(products).map(([name, data]) => {
-//     const usd = Number(
-//         data.Price ??
-//         data.price ??
-//         data.Retail ??
-//         data.retail ??
-//         0
-//     );
+//         for (const [serviceName, operators] of Object.entries(countryPrices)) {
+//             let cheapest = null;
 
-//     return {
-//     name,
-//     usdPrice: usd,
-//     ngnPrice: convertPriceToNaira(usd),
+//             for (const [operator, info] of Object.entries(operators)) {
+//                 const qty = Number(
+//                     info.count ??
+//                     info.Count ??
+//                     info.qty ??
+//                     0
+//                 );
 
-//     // Same amount you'll charge in buyNumber()
-//     estimatedPrice: displayNgn,
+//                 if (qty <= 0) continue;
 
-//     count: Number(data.Qty ?? data.qty ?? 0),
-// };
-// });
+//                 const usd = Number(
+//                     info.cost ??
+//                     info.Cost ??
+//                     info.price ??
+//                     info.Price ??
+//                     0
+//                 );
 
-// return res.status(200).json({
-//     success: true,
-//     total: services.length,
+//                 if (!usd) continue;
 
-//     estimatedPrice: {
-//         usd: displayUsd,
-//         ngn: displayNgn,
-//     },
+//                 if (!cheapest || usd < cheapest.usdPrice) {
+//                     cheapest = {
+//                         operator,
+//                         usdPrice: usd,
+//                         ngnPrice: convertPriceToNaira(usd),
+//                         count: qty,
+//                     };
+//                 }
+//             }
 
-//     services,
-// });
+//             if (cheapest) {
+//                 services.push({
+//                     name: serviceName,
+//                     ...cheapest,
+//                 });
+//             }
+//         }
 
+//         services.sort((a, b) =>
+//             a.name.localeCompare(b.name)
+//         );
+
+//         return res.status(200).json({
+//             success: true,
+//             total: services.length,
+//             services,
+//         });
 //     } catch (error) {
 //         console.error(error.response?.data || error.message);
 
@@ -113,7 +130,8 @@ const getDisplayPrice = (products) => {
 //             success: false,
 //             message:
 //                 error.response?.data?.message ||
-//                 "Unable to fetch services."
+//                 error.message ||
+//                 "Unable to fetch services.",
 //         });
 //     }
 // };
@@ -129,7 +147,7 @@ exports.getServices = async (req, res) => {
             });
         }
 
-        // Fetch all prices for the country
+        // Fetch all service prices for the country
         const response = await fiveSim.get(
             `/guest/prices?country=${country}`
         );
@@ -137,12 +155,26 @@ exports.getServices = async (req, res) => {
         const countryPrices =
             response.data[country] || response.data;
 
+        if (!countryPrices) {
+            return res.status(404).json({
+                success: false,
+                message: "No services found for this country.",
+            });
+        }
+
         const services = [];
 
+        // If highest price is at least 100% higher than cheapest,
+        // use the highest price instead.
+        const PRICE_VARIANCE_THRESHOLD = 1;
+
         for (const [serviceName, operators] of Object.entries(countryPrices)) {
-            let cheapest = null;
+
+            const prices = [];
+            let totalCount = 0;
 
             for (const [operator, info] of Object.entries(operators)) {
+
                 const qty = Number(
                     info.count ??
                     info.Count ??
@@ -162,22 +194,47 @@ exports.getServices = async (req, res) => {
 
                 if (!usd) continue;
 
-                if (!cheapest || usd < cheapest.usdPrice) {
-                    cheapest = {
-                        operator,
-                        usdPrice: usd,
-                        ngnPrice: convertPriceToNaira(usd),
-                        count: qty,
-                    };
-                }
+                prices.push({
+                    operator,
+                    usd,
+                    qty,
+                });
+
+                totalCount += qty;
             }
 
-            if (cheapest) {
-                services.push({
-                    name: serviceName,
-                    ...cheapest,
-                });
-            }
+            if (!prices.length) continue;
+
+            // Lowest -> Highest
+            prices.sort((a, b) => a.usd - b.usd);
+
+            const cheapest = prices[0];
+            const highest = prices[prices.length - 1];
+
+            // Percentage difference
+            const increase =
+                (highest.usd - cheapest.usd) / cheapest.usd;
+
+            // Choose display price
+            const display =
+                increase >= PRICE_VARIANCE_THRESHOLD
+                    ? highest
+                    : cheapest;
+
+            services.push({
+                name: serviceName,
+                operator: display.operator,
+                usdPrice: display.usd,
+                ngnPrice: convertPriceToNaira(display.usd),
+                count: totalCount,
+
+                // Optional debugging values
+                lowestUsdPrice: cheapest.usd,
+                highestUsdPrice: highest.usd,
+                variancePercent: Number(
+                    (increase * 100).toFixed(2)
+                ),
+            });
         }
 
         services.sort((a, b) =>
@@ -189,8 +246,11 @@ exports.getServices = async (req, res) => {
             total: services.length,
             services,
         });
+
     } catch (error) {
-        console.error(error.response?.data || error.message);
+        console.error(
+            error.response?.data || error.message
+        );
 
         return res.status(500).json({
             success: false,
