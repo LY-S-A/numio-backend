@@ -827,30 +827,59 @@ GET ACTIVE ORDERS
 =====================================================
 */
 
+// exports.getActiveOrders = async (req, res) => {
+//     try {
+
+//         const orders = await NumberOrder.find({
+//             user: req.user.id,
+//             status: {
+//                 $in: ["PENDING", "RECEIVED"]
+//             }
+//         })
+//         .sort({ createdAt: -1 });
+
+//         res.json({
+//             success: true,
+//             total: orders.length,
+//             orders
+//         });
+
+//     } catch (err) {
+
+//         res.status(500).json({
+//             success: false,
+//             message: err.message
+//         });
+
+//     }
+// };
+
 exports.getActiveOrders = async (req, res) => {
     try {
-
-        const orders = await NumberOrder.find({
+        const order = await NumberOrder.findOne({
             user: req.user.id,
-            status: {
-                $in: ["PENDING", "RECEIVED"]
-            }
-        })
-        .sort({ createdAt: -1 });
+            status: { $in: ["PENDING", "RECEIVED"] },
+        }).sort({ createdAt: -1 });
+
+        if (!order) {
+            return res.json({
+                success: true,
+                order: null,
+                sms: [],
+            });
+        }
 
         res.json({
             success: true,
-            total: orders.length,
-            orders
+            order,
+            sms: order.sms || [],
         });
 
     } catch (err) {
-
         res.status(500).json({
             success: false,
-            message: err.message
+            message: err.message,
         });
-
     }
 };
 
