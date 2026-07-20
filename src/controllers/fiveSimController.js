@@ -52,216 +52,6 @@ const getDisplayPrice = (products) => {
     return maxNgn - minNgn > 1000 ? max : min;
 };
 
-// exports.getServices = async (req, res) => {
-//     try {
-//         const { country } = req.query;
-
-//         if (!country) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "Country is required.",
-//             });
-//         }
-
-//         // Fetch all prices for the country
-//         const response = await fiveSim.get(
-//             `/guest/prices?country=${country}`
-//         );
-
-//         const countryPrices =
-//             response.data[country] || response.data;
-
-//         const services = [];
-
-//         for (const [serviceName, operators] of Object.entries(countryPrices)) {
-//             let cheapest = null;
-
-//             for (const [operator, info] of Object.entries(operators)) {
-//                 const qty = Number(
-//                     info.count ??
-//                     info.Count ??
-//                     info.qty ??
-//                     0
-//                 );
-
-//                 if (qty <= 0) continue;
-
-//                 const usd = Number(
-//                     info.cost ??
-//                     info.Cost ??
-//                     info.price ??
-//                     info.Price ??
-//                     0
-//                 );
-
-//                 if (!usd) continue;
-
-//                 if (!cheapest || usd < cheapest.usdPrice) {
-//                     cheapest = {
-//                         operator,
-//                         usdPrice: usd,
-//                         ngnPrice: convertPriceToNaira(usd),
-//                         count: qty,
-//                     };
-//                 }
-//             }
-
-//             if (cheapest) {
-//                 services.push({
-//                     name: serviceName,
-//                     ...cheapest,
-//                 });
-//             }
-//         }
-
-//         services.sort((a, b) =>
-//             a.name.localeCompare(b.name)
-//         );
-
-//         return res.status(200).json({
-//             success: true,
-//             total: services.length,
-//             services,
-//         });
-//     } catch (error) {
-//         console.error(error.response?.data || error.message);
-
-//         return res.status(500).json({
-//             success: false,
-//             message:
-//                 error.response?.data?.message ||
-//                 error.message ||
-//                 "Unable to fetch services.",
-//         });
-//     }
-// };
-
-// exports.getServices = async (req, res) => {
-//     try {
-//         const { country } = req.query;
-
-//         if (!country) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "Country is required.",
-//             });
-//         }
-
-//         // Fetch all service prices for the country
-//         const response = await fiveSim.get(
-//             `/guest/prices?country=${country}`
-//         );
-
-//         const countryPrices =
-//             response.data[country] || response.data;
-
-//         if (!countryPrices) {
-//             return res.status(404).json({
-//                 success: false,
-//                 message: "No services found for this country.",
-//             });
-//         }
-
-//         const services = [];
-
-//         // If highest price is at least 100% higher than cheapest,
-//         // use the highest price instead.
-//         const PRICE_VARIANCE_THRESHOLD = 1;
-
-//         for (const [serviceName, operators] of Object.entries(countryPrices)) {
-
-//             const prices = [];
-//             let totalCount = 0;
-
-//             for (const [operator, info] of Object.entries(operators)) {
-
-//                 const qty = Number(
-//                     info.count ??
-//                     info.Count ??
-//                     info.qty ??
-//                     0
-//                 );
-
-//                 if (qty <= 0) continue;
-
-//                 const usd = Number(
-//                     info.cost ??
-//                     info.Cost ??
-//                     info.price ??
-//                     info.Price ??
-//                     0
-//                 );
-
-//                 if (!usd) continue;
-
-//                 prices.push({
-//                     operator,
-//                     usd,
-//                     qty,
-//                 });
-
-//                 totalCount += qty;
-//             }
-
-//             if (!prices.length) continue;
-
-//             // Lowest -> Highest
-//             prices.sort((a, b) => a.usd - b.usd);
-
-//             const cheapest = prices[0];
-//             const highest = prices[prices.length - 1];
-
-//             // Percentage difference
-//             const increase =
-//                 (highest.usd - cheapest.usd) / cheapest.usd;
-
-//             // Choose display price
-//             const display =
-//                 increase >= PRICE_VARIANCE_THRESHOLD
-//                     ? highest
-//                     : cheapest;
-
-//             services.push({
-//                 name: serviceName,
-//                 operator: display.operator,
-//                 usdPrice: display.usd,
-//                 ngnPrice: convertPriceToNaira(display.usd),
-//                 count: totalCount,
-
-//                 // Optional debugging values
-//                 lowestUsdPrice: cheapest.usd,
-//                 highestUsdPrice: highest.usd,
-//                 variancePercent: Number(
-//                     (increase * 100).toFixed(2)
-//                 ),
-//             });
-//         }
-
-//         services.sort((a, b) =>
-//             a.name.localeCompare(b.name)
-//         );
-
-//         return res.status(200).json({
-//             success: true,
-//             total: services.length,
-//             services,
-//         });
-
-//     } catch (error) {
-//         console.error(
-//             error.response?.data || error.message
-//         );
-
-//         return res.status(500).json({
-//             success: false,
-//             message:
-//                 error.response?.data?.message ||
-//                 error.message ||
-//                 "Unable to fetch services.",
-//         });
-//     }
-// };
-
 exports.getServices = async (req, res) => {
     try {
         const { country } = req.query;
@@ -459,6 +249,187 @@ BUY NUMBER
 =====================================================
 */
 
+// exports.buyNumber = async (req, res) => {
+//     const session = await mongoose.startSession();
+
+//     try {
+//         session.startTransaction();
+
+//         const userId = req.user.id;
+//         const { service, country } = req.body;
+
+//         if (!service || !country) {
+//             await session.abortTransaction();
+//             session.endSession();
+
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Service and country are required.",
+//             });
+//         }
+
+//         const user = await User.findById(userId).session(session);
+
+//         if (!user) {
+//             await session.abortTransaction();
+//             session.endSession();
+
+//             return res.status(404).json({
+//                 success: false,
+//                 message: "User not found.",
+//             });
+//         }
+
+//         /*
+//         ===========================
+//         BUY FROM 5SIM
+//         ===========================
+//         */
+
+//         const response = await fiveSim.get(
+//             `/user/buy/activation/${country}/any/${service}`
+//         );
+
+//         const order = response.data;
+
+//         if (!order || !order.id) {
+//             throw new Error("Unable to purchase number.");
+//         }
+
+//         // const amount = convertPriceToNaira(order.price);
+
+//         /*
+// ===========================
+// CALCULATE DISPLAY PRICE
+// ===========================
+// */
+
+// const productsResponse = await fiveSim.get(
+//     `/guest/products/${country}/any`
+// );
+
+// const displayUsd = getDisplayPrice(productsResponse.data);
+
+// const amount = convertPriceToNaira(displayUsd);
+
+//         if (user.wallet < amount) {
+//             await session.abortTransaction();
+//             session.endSession();
+
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Insufficient wallet balance.",
+//             });
+//         }
+
+//         /*
+//         ===========================
+//         DEDUCT WALLET
+//         ===========================
+//         */
+
+//         user.wallet -= amount;
+
+//         await user.save({ session });
+
+//         /*
+//         ===========================
+//         SAVE TRANSACTION
+//         ===========================
+//         */
+
+//         const transaction = await Transaction.create(
+//             [
+//                 {
+//                     user: user._id,
+
+//                     reference: generateReference(),
+
+//                     amount,
+
+//                     currency: "NGN",
+
+//                     provider: "SYSTEM",
+
+//                     type: "PURCHASE",
+
+//                     status: "SUCCESS",
+
+//                     gatewayTransactionId: String(order.id),
+
+//                     paymentMethod: "Wallet",
+
+//                     description: `Purchased ${service} number (${country})`,
+//                 },
+//             ],
+//             { session }
+//         );
+
+//         /*
+//         ===========================
+//         SAVE ORDER
+//         ===========================
+//         */
+
+//         const savedOrder = await NumberOrder.create(
+//             [
+//                 {
+//                     user: user._id,
+
+//                     orderId: order.id,
+
+//                     phone: order.phone,
+
+//                     country,
+
+//                     service,
+
+//                     operator: order.operator,
+
+//                     price: amount,
+
+//                     expires: order.expires
+//                         ? new Date(order.expires)
+//                         : null,
+
+//                     status: "PENDING",
+
+//                     sms: [],
+//                 },
+//             ],
+//             { session }
+//         );
+
+//         await session.commitTransaction();
+//         session.endSession();
+
+//         return res.status(200).json({
+//             success: true,
+
+//             message: "Number purchased successfully.",
+
+//             wallet: user.wallet,
+
+//             order: savedOrder[0],
+
+//             transaction: transaction[0],
+//         });
+//     } catch (error) {
+//         await session.abortTransaction();
+//         session.endSession();
+
+//         console.error(error.response?.data || error.message);
+
+//         return res.status(500).json({
+//             success: false,
+//             message:
+//                 error.response?.data?.message ||
+//                 error.message ||
+//                 "Unable to purchase number.",
+//         });
+//     }
+// };
+
 exports.buyNumber = async (req, res) => {
     const session = await mongoose.startSession();
 
@@ -492,7 +463,7 @@ exports.buyNumber = async (req, res) => {
 
         /*
         ===========================
-        BUY FROM 5SIM
+        BUY NUMBER FROM 5SIM
         ===========================
         */
 
@@ -506,21 +477,99 @@ exports.buyNumber = async (req, res) => {
             throw new Error("Unable to purchase number.");
         }
 
-        // const amount = convertPriceToNaira(order.price);
+        /*
+        ===========================
+        DETERMINE THE SAME PRICE
+        SHOWN TO THE USER
+        ===========================
+        */
+
+        const pricesRes = await fiveSim.get(
+            `/guest/prices?country=${country}`
+        );
+
+        const countryPrices =
+            pricesRes.data[country] || pricesRes.data;
+
+        const operators = countryPrices?.[service];
+
+        if (!operators) {
+            throw new Error(
+                "Unable to determine service price."
+            );
+        }
+
+        const PRICE_VARIANCE_THRESHOLD = Number(
+            process.env.PRICE_VARIANCE_THRESHOLD || 1
+        );
+
+        const MIN_ABSOLUTE_DIFFERENCE = Number(
+            process.env.MIN_PRICE_DIFFERENCE || 2
+        );
+
+        const prices = [];
+
+        for (const info of Object.values(operators)) {
+
+            const qty = Number(
+                info.count ??
+                info.Count ??
+                info.qty ??
+                0
+            );
+
+            if (qty <= 0) continue;
+
+            const usd = Number(
+                info.cost ??
+                info.Cost ??
+                info.price ??
+                info.Price ??
+                0
+            );
+
+            if (!usd) continue;
+
+            prices.push({
+                usd,
+                qty,
+            });
+        }
+
+        if (!prices.length) {
+            throw new Error(
+                "Unable to determine service price."
+            );
+        }
+
+        prices.sort((a, b) => a.usd - b.usd);
+
+        const cheapest = prices[0];
+        const highest = prices[prices.length - 1];
+
+        const percentageIncrease =
+            (highest.usd - cheapest.usd) /
+            cheapest.usd;
+
+        const absoluteDifference =
+            highest.usd - cheapest.usd;
+
+        const displayPrice =
+            percentageIncrease >=
+                PRICE_VARIANCE_THRESHOLD &&
+            absoluteDifference >=
+                MIN_ABSOLUTE_DIFFERENCE
+                ? highest.usd
+                : cheapest.usd;
+
+        const amount =
+            convertPriceToNaira(displayPrice);
 
         /*
-===========================
-CALCULATE DISPLAY PRICE
-===========================
-*/
-
-const productsResponse = await fiveSim.get(
-    `/guest/products/${country}/any`
-);
-
-const displayUsd = getDisplayPrice(productsResponse.data);
-
-const amount = convertPriceToNaira(displayUsd);
+        ===========================
+        CHECK WALLET
+        ===========================
+        */
 
         if (user.wallet < amount) {
             await session.abortTransaction();
@@ -528,11 +577,12 @@ const amount = convertPriceToNaira(displayUsd);
 
             return res.status(400).json({
                 success: false,
-                message: "Insufficient wallet balance.",
+                message:
+                    "Insufficient wallet balance.",
             });
         }
 
-        /*
+               /*
         ===========================
         DEDUCT WALLET
         ===========================
@@ -596,6 +646,7 @@ const amount = convertPriceToNaira(displayUsd);
 
                     operator: order.operator,
 
+                    // User is charged exactly what was displayed
                     price: amount,
 
                     expires: order.expires
@@ -609,6 +660,12 @@ const amount = convertPriceToNaira(displayUsd);
             ],
             { session }
         );
+
+               /*
+        ===========================
+        COMMIT TRANSACTION
+        ===========================
+        */
 
         await session.commitTransaction();
         session.endSession();
@@ -624,11 +681,15 @@ const amount = convertPriceToNaira(displayUsd);
 
             transaction: transaction[0],
         });
+
     } catch (error) {
+
         await session.abortTransaction();
         session.endSession();
 
-        console.error(error.response?.data || error.message);
+        console.error(
+            error.response?.data || error.message
+        );
 
         return res.status(500).json({
             success: false,
@@ -637,6 +698,7 @@ const amount = convertPriceToNaira(displayUsd);
                 error.message ||
                 "Unable to purchase number.",
         });
+
     }
 };
 
