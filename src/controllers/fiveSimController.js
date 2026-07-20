@@ -107,12 +107,23 @@ const services = Object.entries(products).map(([name, data]) => {
         0
     );
 
+    // return {
+    //     name,
+    //     usdPrice: usd,
+    //     ngnPrice: convertPriceToNaira(usd),
+    //     count: Number(data.Qty ?? data.qty ?? 0),
+    // };
+
     return {
-        name,
-        usdPrice: usd,
-        ngnPrice: convertPriceToNaira(usd),
-        count: Number(data.Qty ?? data.qty ?? 0),
-    };
+    name,
+    usdPrice: usd,
+    ngnPrice: convertPriceToNaira(usd),
+
+    // Same amount you'll charge in buyNumber()
+    estimatedPrice: displayNgn,
+
+    count: Number(data.Qty ?? data.qty ?? 0),
+};
 });
 
 return res.status(200).json({
