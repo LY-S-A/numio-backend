@@ -866,19 +866,26 @@ exports.getActiveOrders = async (req, res) => {
         if (!order) {
             return res.json({
                 success: true,
+                wallet: undefined,
                 order: null,
                 sms: [],
             });
         }
 
-        // Check expiry
+        // Check if order has expired
         if (order.expires && new Date(order.expires) <= new Date()) {
             const user = await User.findById(req.user.id);
 
-            // Prevent double refund
+            if (!user) {
+                return res.status(404).json({
+                    success: false,
+                    message: "User not found.",
+                });
+            }
+
+            // Refund only once
             if (!order.refunded) {
                 user.wallet += order.price;
-                await user.save();
 
                 await Transaction.create({
                     user: user._id,
@@ -888,7 +895,7 @@ exports.getActiveOrders = async (req, res) => {
                     provider: "SYSTEM",
                     type: "REFUND",
                     status: "SUCCESS",
-                    gatewayTransactionId: order.orderId,
+                    gatewayTransactionId: String(order.orderId),
                     paymentMethod: "Wallet",
                     description: `Refund for expired ${order.service} number (${order.country})`,
                 });
@@ -897,7 +904,11 @@ exports.getActiveOrders = async (req, res) => {
             }
 
             order.status = "EXPIRED";
-            await order.save();
+
+            await Promise.all([
+                user.save(),
+                order.save(),
+            ]);
 
             return res.json({
                 success: true,
@@ -909,18 +920,20 @@ exports.getActiveOrders = async (req, res) => {
 
         return res.json({
             success: true,
+            wallet: undefined,
             order,
             sms: order.sms || [],
         });
 
     } catch (err) {
-        res.status(500).json({
+        console.error("getActiveOrders:", err);
+
+        return res.status(500).json({
             success: false,
-            message: err.message,
+            message: "Failed to load active order.",
         });
     }
 };
-
 
 /*
 =====================================================
