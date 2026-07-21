@@ -53,6 +53,11 @@ const numberOrderSchema = new mongoose.Schema(
       default: "PENDING",
     },
 
+    refunded: {
+     type: Boolean,
+     default: false,
+   },
+
     sms: [
       {
         code: String,
