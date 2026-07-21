@@ -829,28 +829,30 @@ GET ACTIVE ORDERS
 
 // exports.getActiveOrders = async (req, res) => {
 //     try {
-
-//         const orders = await NumberOrder.find({
+//         const order = await NumberOrder.findOne({
 //             user: req.user.id,
-//             status: {
-//                 $in: ["PENDING", "RECEIVED"]
-//             }
-//         })
-//         .sort({ createdAt: -1 });
+//             status: { $in: ["PENDING", "RECEIVED"] },
+//         }).sort({ createdAt: -1 });
+
+//         if (!order) {
+//             return res.json({
+//                 success: true,
+//                 order: null,
+//                 sms: [],
+//             });
+//         }
 
 //         res.json({
 //             success: true,
-//             total: orders.length,
-//             orders
+//             order,
+//             sms: order.sms || [],
 //         });
 
 //     } catch (err) {
-
 //         res.status(500).json({
 //             success: false,
-//             message: err.message
+//             message: err.message,
 //         });
-
 //     }
 // };
 
@@ -869,7 +871,43 @@ exports.getActiveOrders = async (req, res) => {
             });
         }
 
-        res.json({
+        // Check expiry
+        if (order.expires && new Date(order.expires) <= new Date()) {
+            const user = await User.findById(req.user.id);
+
+            // Prevent double refund
+            if (!order.refunded) {
+                user.wallet += order.price;
+                await user.save();
+
+                await Transaction.create({
+                    user: user._id,
+                    reference: generateReference(),
+                    amount: order.price,
+                    currency: "NGN",
+                    provider: "SYSTEM",
+                    type: "REFUND",
+                    status: "SUCCESS",
+                    gatewayTransactionId: order.orderId,
+                    paymentMethod: "Wallet",
+                    description: `Refund for expired ${order.service} number (${order.country})`,
+                });
+
+                order.refunded = true;
+            }
+
+            order.status = "EXPIRED";
+            await order.save();
+
+            return res.json({
+                success: true,
+                wallet: user.wallet,
+                order: null,
+                sms: [],
+            });
+        }
+
+        return res.json({
             success: true,
             order,
             sms: order.sms || [],
