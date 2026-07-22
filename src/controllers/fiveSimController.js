@@ -1275,126 +1275,12 @@ SYNC ACTIVE ORDERS
 =====================================================
 */
 
-// exports.syncOrders = async () => {
-//     try {
-
-//         // Only sync orders still waiting for an SMS
-//         const orders = await NumberOrder.find({
-//             status: "PENDING"
-//         });
-
-//         for (const order of orders) {
-
-//             try {
-
-//                 const response = await fiveSim.get(
-//                     `/user/check/${order.orderId}`
-//                 );
-
-//                 const data = response.data;
-
-//                 const smsList = Array.isArray(data.sms)
-//                     ? data.sms.map((sms) => ({
-//                           code: sms.code || "",
-//                           text: sms.text || "",
-//                           sender: sms.sender || "",
-//                           createdAt: sms.created_at
-//                               ? new Date(sms.created_at)
-//                               : new Date(),
-//                       }))
-//                     : [];
-
-//                 /*
-//                 ========================================
-//                 SMS RECEIVED
-//                 ========================================
-//                 */
-
-//                 if (smsList.length > 0) {
-
-//                     order.sms = smsList;
-
-//                     // Lock the order
-//                     order.status = "RECEIVED";
-
-//                     // Freeze expiry so it cannot expire/refund
-//                     order.expires = new Date();
-
-//                     await order.save();
-
-//                     // Stop processing this order
-//                     continue;
-//                 }
-
-//                 /*
-//                 ========================================
-//                 STILL WAITING FOR SMS
-//                 ========================================
-//                 */
-
-//                 if (data.expires) {
-//                     order.expires = new Date(data.expires);
-//                 }
-
-//                 if (data.status) {
-
-//                     const status = data.status.toUpperCase();
-
-//                     switch (status) {
-
-//                         case "PENDING":
-//                         case "RECEIVED":
-//                             order.status = "PENDING";
-//                             break;
-
-//                         case "FINISHED":
-//                             order.status = "FINISHED";
-//                             break;
-
-//                         case "CANCELLED":
-//                             order.status = "CANCELLED";
-//                             break;
-
-//                         case "TIMEOUT":
-//                         case "EXPIRED":
-//                             order.status = "EXPIRED";
-//                             break;
-
-//                         default:
-//                             break;
-//                     }
-//                 }
-
-//                 await order.save();
-
-//             } catch (err) {
-
-//                 console.error(
-//                     `Unable to sync order ${order.orderId}:`,
-//                     err.response?.data || err.message
-//                 );
-
-//                 // Continue syncing remaining orders
-//                 continue;
-//             }
-//         }
-
-//     } catch (err) {
-
-//         console.error(
-//             "syncOrders:",
-//             err.response?.data || err.message
-//         );
-
-//     }
-// };
-
 exports.syncOrders = async () => {
     try {
 
         // Only sync orders still waiting for an SMS
         const orders = await NumberOrder.find({
-            status: "PENDING",
+            status: "PENDING"
         });
 
         for (const order of orders) {
@@ -1426,21 +1312,17 @@ exports.syncOrders = async () => {
 
                 if (smsList.length > 0) {
 
-                    await NumberOrder.updateOne(
-                        {
-                            _id: order._id,
-                            status: "PENDING",
-                        },
-                        {
-                            $set: {
-                                sms: smsList,
-                                status: "RECEIVED",
-                                expires: null,
-                            },
-                        }
-                    );
+                    order.sms = smsList;
 
-                    // Skip remaining processing
+                    // Lock the order
+                    order.status = "RECEIVED";
+
+                    // Freeze expiry so it cannot expire/refund
+                    order.expires = new Date();
+
+                    await order.save();
+
+                    // Stop processing this order
                     continue;
                 }
 
@@ -1450,32 +1332,32 @@ exports.syncOrders = async () => {
                 ========================================
                 */
 
-                const updates = {};
-
                 if (data.expires) {
-                    updates.expires = new Date(data.expires);
+                    order.expires = new Date(data.expires);
                 }
 
                 if (data.status) {
 
-                    switch (data.status.toUpperCase()) {
+                    const status = data.status.toUpperCase();
+
+                    switch (status) {
 
                         case "PENDING":
                         case "RECEIVED":
-                            updates.status = "PENDING";
+                            order.status = "PENDING";
                             break;
 
                         case "FINISHED":
-                            updates.status = "FINISHED";
+                            order.status = "FINISHED";
                             break;
 
                         case "CANCELLED":
-                            updates.status = "CANCELLED";
+                            order.status = "CANCELLED";
                             break;
 
                         case "TIMEOUT":
                         case "EXPIRED":
-                            updates.status = "EXPIRED";
+                            order.status = "EXPIRED";
                             break;
 
                         default:
@@ -1483,30 +1365,16 @@ exports.syncOrders = async () => {
                     }
                 }
 
-                if (Object.keys(updates).length > 0) {
-
-                    await NumberOrder.updateOne(
-                        {
-                            _id: order._id,
-                            status: "PENDING",
-                        },
-                        {
-                            $set: updates,
-                        }
-                    );
-                }
+                await order.save();
 
             } catch (err) {
 
-                // Ignore orders that no longer exist on 5SIM
-                if (err.response?.status !== 404) {
+                console.error(
+                    `Unable to sync order ${order.orderId}:`,
+                    err.response?.data || err.message
+                );
 
-                    console.error(
-                        `Unable to sync order ${order.orderId}:`,
-                        err.response?.data || err.message
-                    );
-                }
-
+                // Continue syncing remaining orders
                 continue;
             }
         }
@@ -1517,5 +1385,137 @@ exports.syncOrders = async () => {
             "syncOrders:",
             err.response?.data || err.message
         );
+
     }
 };
+
+// exports.syncOrders = async () => {
+//     try {
+
+//         // Only sync orders still waiting for an SMS
+//         const orders = await NumberOrder.find({
+//             status: "PENDING",
+//         });
+
+//         for (const order of orders) {
+
+//             try {
+
+//                 const response = await fiveSim.get(
+//                     `/user/check/${order.orderId}`
+//                 );
+
+//                 const data = response.data;
+
+//                 const smsList = Array.isArray(data.sms)
+//                     ? data.sms.map((sms) => ({
+//                           code: sms.code || "",
+//                           text: sms.text || "",
+//                           sender: sms.sender || "",
+//                           createdAt: sms.created_at
+//                               ? new Date(sms.created_at)
+//                               : new Date(),
+//                       }))
+//                     : [];
+
+//                 /*
+//                 ========================================
+//                 SMS RECEIVED
+//                 ========================================
+//                 */
+
+//                 if (smsList.length > 0) {
+
+//                     await NumberOrder.updateOne(
+//                         {
+//                             _id: order._id,
+//                             status: "PENDING",
+//                         },
+//                         {
+//                             $set: {
+//                                 sms: smsList,
+//                                 status: "RECEIVED",
+//                                 expires: null,
+//                             },
+//                         }
+//                     );
+
+//                     // Skip remaining processing
+//                     continue;
+//                 }
+
+//                 /*
+//                 ========================================
+//                 STILL WAITING FOR SMS
+//                 ========================================
+//                 */
+
+//                 const updates = {};
+
+//                 if (data.expires) {
+//                     updates.expires = new Date(data.expires);
+//                 }
+
+//                 if (data.status) {
+
+//                     switch (data.status.toUpperCase()) {
+
+//                         case "PENDING":
+//                         case "RECEIVED":
+//                             updates.status = "PENDING";
+//                             break;
+
+//                         case "FINISHED":
+//                             updates.status = "FINISHED";
+//                             break;
+
+//                         case "CANCELLED":
+//                             updates.status = "CANCELLED";
+//                             break;
+
+//                         case "TIMEOUT":
+//                         case "EXPIRED":
+//                             updates.status = "EXPIRED";
+//                             break;
+
+//                         default:
+//                             break;
+//                     }
+//                 }
+
+//                 if (Object.keys(updates).length > 0) {
+
+//                     await NumberOrder.updateOne(
+//                         {
+//                             _id: order._id,
+//                             status: "PENDING",
+//                         },
+//                         {
+//                             $set: updates,
+//                         }
+//                     );
+//                 }
+
+//             } catch (err) {
+
+//                 // Ignore orders that no longer exist on 5SIM
+//                 if (err.response?.status !== 404) {
+
+//                     console.error(
+//                         `Unable to sync order ${order.orderId}:`,
+//                         err.response?.data || err.message
+//                     );
+//                 }
+
+//                 continue;
+//             }
+//         }
+
+//     } catch (err) {
+
+//         console.error(
+//             "syncOrders:",
+//             err.response?.data || err.message
+//         );
+//     }
+// };
