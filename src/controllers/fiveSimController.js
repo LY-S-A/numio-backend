@@ -1221,27 +1221,6 @@ AUTO EXPIRE ORDERS
 =====================================================
 */
 
-// exports.expireOrders = async () => {
-//     try {
-//         const now = new Date();
-
-//         await NumberOrder.updateMany(
-//             {
-//                 status: "PENDING",
-//                 expires: { $lt: now }
-//             },
-//             {
-//                 $set: {
-//                     status: "EXPIRED"
-//                 }
-//             }
-//         );
-
-//     } catch (err) {
-//         console.log("Expire Orders:", err.message);
-//     }
-// };
-
 exports.expireOrders = async () => {
     try {
         const now = new Date();
@@ -1249,18 +1228,12 @@ exports.expireOrders = async () => {
         await NumberOrder.updateMany(
             {
                 status: "PENDING",
-                expires: {
-                    $ne: null,
-                    $lt: now,
-                },
-                sms: {
-                    $size: 0,
-                },
+                expires: { $lt: now }
             },
             {
                 $set: {
-                    status: "EXPIRED",
-                },
+                    status: "EXPIRED"
+                }
             }
         );
 
@@ -1268,6 +1241,8 @@ exports.expireOrders = async () => {
         console.log("Expire Orders:", err.message);
     }
 };
+
+
 
 /*
 =====================================================
