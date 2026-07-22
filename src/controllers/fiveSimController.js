@@ -836,100 +836,165 @@ GET ACTIVE ORDERS
 //         if (!order) {
 //             return res.json({
 //                 success: true,
+//                 wallet: undefined,
 //                 order: null,
 //                 sms: [],
 //             });
 //         }
 
-//         res.json({
+//         // Check if order has expired
+//         if (order.expires && new Date(order.expires) <= new Date()) {
+//             const user = await User.findById(req.user.id);
+
+//             if (!user) {
+//                 return res.status(404).json({
+//                     success: false,
+//                     message: "User not found.",
+//                 });
+//             }
+
+//             // Refund only once
+//             if (!order.refunded) {
+//                 user.wallet += order.price;
+
+//                 await Transaction.create({
+//                     user: user._id,
+//                     reference: generateReference(),
+//                     amount: order.price,
+//                     currency: "NGN",
+//                     provider: "SYSTEM",
+//                     type: "REFUND",
+//                     status: "SUCCESS",
+//                     gatewayTransactionId: String(order.orderId),
+//                     paymentMethod: "Wallet",
+//                     description: `Refund for expired ${order.service} number (${order.country})`,
+//                 });
+
+//                 order.refunded = true;
+//             }
+
+//             order.status = "EXPIRED";
+
+//             await Promise.all([
+//                 user.save(),
+//                 order.save(),
+//             ]);
+
+//             return res.json({
+//                 success: true,
+//                 wallet: user.wallet,
+//                 order: null,
+//                 sms: [],
+//             });
+//         }
+
+//         return res.json({
 //             success: true,
+//             wallet: undefined,
 //             order,
 //             sms: order.sms || [],
 //         });
 
 //     } catch (err) {
-//         res.status(500).json({
+//         console.error("getActiveOrders:", err);
+
+//         return res.status(500).json({
 //             success: false,
-//             message: err.message,
+//             message: "Failed to load active order.",
 //         });
 //     }
 // };
 
 exports.getActiveOrders = async (req, res) => {
     try {
+        const userId = req.user.id;
+
         const order = await NumberOrder.findOne({
-            user: req.user.id,
-            status: { $in: ["PENDING", "RECEIVED"] },
+            user: userId,
+            status: {
+                $nin: ["FINISHED", "CANCELLED", "EXPIRED"],
+            },
         }).sort({ createdAt: -1 });
 
         if (!order) {
-            return res.json({
+            return res.status(200).json({
                 success: true,
-                wallet: undefined,
                 order: null,
                 sms: [],
             });
         }
 
-        // Check if order has expired
-        if (order.expires && new Date(order.expires) <= new Date()) {
-            const user = await User.findById(req.user.id);
+        // Automatically sync latest data from 5SIM
+        try {
+            const response = await fiveSim.get(
+                `/user/check/${order.orderId}`
+            );
 
-            if (!user) {
-                return res.status(404).json({
-                    success: false,
-                    message: "User not found.",
-                });
+            const data = response.data;
+
+            // Map SMS
+            const smsList = Array.isArray(data.sms)
+                ? data.sms.map((sms) => ({
+                      code: sms.code || "",
+                      text: sms.text || "",
+                      sender: sms.sender || "",
+                      createdAt: sms.created_at
+                          ? new Date(sms.created_at)
+                          : new Date(),
+                  }))
+                : [];
+
+            // Update SMS only if changed
+            if (
+                JSON.stringify(order.sms) !==
+                JSON.stringify(smsList)
+            ) {
+                order.sms = smsList;
             }
 
-            // Refund only once
-            if (!order.refunded) {
-                user.wallet += order.price;
-
-                await Transaction.create({
-                    user: user._id,
-                    reference: generateReference(),
-                    amount: order.price,
-                    currency: "NGN",
-                    provider: "SYSTEM",
-                    type: "REFUND",
-                    status: "SUCCESS",
-                    gatewayTransactionId: String(order.orderId),
-                    paymentMethod: "Wallet",
-                    description: `Refund for expired ${order.service} number (${order.country})`,
-                });
-
-                order.refunded = true;
+            // Sync status
+            if (smsList.length > 0) {
+                order.status = "RECEIVED";
+            } else if (data.status) {
+                order.status = data.status.toUpperCase();
             }
 
-            order.status = "EXPIRED";
+            // Sync expiry
+            if (data.expires) {
+                order.expires = new Date(data.expires);
+            }
 
-            await Promise.all([
-                user.save(),
-                order.save(),
-            ]);
+            // If 5SIM reports finished/cancelled/timeout,
+            // update local status as well.
+            if (
+                ["FINISHED", "CANCELLED", "TIMEOUT", "EXPIRED"].includes(
+                    order.status
+                )
+            ) {
+                order.status = order.status;
+            }
 
-            return res.json({
-                success: true,
-                wallet: user.wallet,
-                order: null,
-                sms: [],
-            });
+            await order.save();
+        } catch (err) {
+            console.error(
+                "5SIM sync failed:",
+                err.response?.data || err.message
+            );
+            // Don't fail the request if 5SIM is temporarily unavailable.
+            // Return the latest data stored in MongoDB.
         }
 
-        return res.json({
+        return res.status(200).json({
             success: true,
-            wallet: undefined,
             order,
             sms: order.sms || [],
         });
-
-    } catch (err) {
-        console.error("getActiveOrders:", err);
+    } catch (error) {
+        console.error(error);
 
         return res.status(500).json({
             success: false,
-            message: "Failed to load active order.",
+            message: "Unable to fetch active order.",
         });
     }
 };
