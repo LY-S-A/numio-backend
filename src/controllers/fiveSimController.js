@@ -826,81 +826,98 @@ GET ACTIVE ORDERS
 =====================================================
 */
 
+
+
 // exports.getActiveOrders = async (req, res) => {
 //     try {
+//         const userId = req.user.id;
+
 //         const order = await NumberOrder.findOne({
-//             user: req.user.id,
-//             status: { $in: ["PENDING", "RECEIVED"] },
+//             user: userId,
+//             status: {
+//                 $nin: ["FINISHED", "CANCELLED", "EXPIRED"],
+//             },
 //         }).sort({ createdAt: -1 });
 
 //         if (!order) {
-//             return res.json({
+//             return res.status(200).json({
 //                 success: true,
-//                 wallet: undefined,
 //                 order: null,
 //                 sms: [],
 //             });
 //         }
 
-//         // Check if order has expired
-//         if (order.expires && new Date(order.expires) <= new Date()) {
-//             const user = await User.findById(req.user.id);
+//         // Automatically sync latest data from 5SIM
+//         try {
+//             const response = await fiveSim.get(
+//                 `/user/check/${order.orderId}`
+//             );
 
-//             if (!user) {
-//                 return res.status(404).json({
-//                     success: false,
-//                     message: "User not found.",
-//                 });
+//             const data = response.data;
+
+//             // Map SMS
+//             const smsList = Array.isArray(data.sms)
+//                 ? data.sms.map((sms) => ({
+//                       code: sms.code || "",
+//                       text: sms.text || "",
+//                       sender: sms.sender || "",
+//                       createdAt: sms.created_at
+//                           ? new Date(sms.created_at)
+//                           : new Date(),
+//                   }))
+//                 : [];
+
+//             // Update SMS only if changed
+//             if (
+//                 JSON.stringify(order.sms) !==
+//                 JSON.stringify(smsList)
+//             ) {
+//                 order.sms = smsList;
 //             }
 
-//             // Refund only once
-//             if (!order.refunded) {
-//                 user.wallet += order.price;
-
-//                 await Transaction.create({
-//                     user: user._id,
-//                     reference: generateReference(),
-//                     amount: order.price,
-//                     currency: "NGN",
-//                     provider: "SYSTEM",
-//                     type: "REFUND",
-//                     status: "SUCCESS",
-//                     gatewayTransactionId: String(order.orderId),
-//                     paymentMethod: "Wallet",
-//                     description: `Refund for expired ${order.service} number (${order.country})`,
-//                 });
-
-//                 order.refunded = true;
+//             // Sync status
+//             if (smsList.length > 0) {
+//                 order.status = "RECEIVED";
+//             } else if (data.status) {
+//                 order.status = data.status.toUpperCase();
 //             }
 
-//             order.status = "EXPIRED";
+//             // Sync expiry
+//             if (data.expires) {
+//                 order.expires = new Date(data.expires);
+//             }
 
-//             await Promise.all([
-//                 user.save(),
-//                 order.save(),
-//             ]);
+//             // If 5SIM reports finished/cancelled/timeout,
+//             // update local status as well.
+//             if (
+//                 ["FINISHED", "CANCELLED", "TIMEOUT", "EXPIRED"].includes(
+//                     order.status
+//                 )
+//             ) {
+//                 order.status = order.status;
+//             }
 
-//             return res.json({
-//                 success: true,
-//                 wallet: user.wallet,
-//                 order: null,
-//                 sms: [],
-//             });
+//             await order.save();
+//         } catch (err) {
+//             console.error(
+//                 "5SIM sync failed:",
+//                 err.response?.data || err.message
+//             );
+//             // Don't fail the request if 5SIM is temporarily unavailable.
+//             // Return the latest data stored in MongoDB.
 //         }
 
-//         return res.json({
+//         return res.status(200).json({
 //             success: true,
-//             wallet: undefined,
 //             order,
 //             sms: order.sms || [],
 //         });
-
-//     } catch (err) {
-//         console.error("getActiveOrders:", err);
+//     } catch (error) {
+//         console.error(error);
 
 //         return res.status(500).json({
 //             success: false,
-//             message: "Failed to load active order.",
+//             message: "Unable to fetch active order.",
 //         });
 //     }
 // };
@@ -924,7 +941,6 @@ exports.getActiveOrders = async (req, res) => {
             });
         }
 
-        // Automatically sync latest data from 5SIM
         try {
             const response = await fiveSim.get(
                 `/user/check/${order.orderId}`
@@ -932,7 +948,9 @@ exports.getActiveOrders = async (req, res) => {
 
             const data = response.data;
 
-            // Map SMS
+            // ==========================
+            // MAP SMS
+            // ==========================
             const smsList = Array.isArray(data.sms)
                 ? data.sms.map((sms) => ({
                       code: sms.code || "",
@@ -952,36 +970,59 @@ exports.getActiveOrders = async (req, res) => {
                 order.sms = smsList;
             }
 
-            // Sync status
+            // ==========================
+            // SMS RECEIVED
+            // ==========================
             if (smsList.length > 0) {
                 order.status = "RECEIVED";
-            } else if (data.status) {
-                order.status = data.status.toUpperCase();
+
+                // Freeze expiry so background jobs
+                // cannot later mark it EXPIRED.
+                order.expires = null;
             }
 
-            // Sync expiry
-            if (data.expires) {
-                order.expires = new Date(data.expires);
-            }
+            // ==========================
+            // NO SMS YET
+            // ==========================
+            else {
 
-            // If 5SIM reports finished/cancelled/timeout,
-            // update local status as well.
-            if (
-                ["FINISHED", "CANCELLED", "TIMEOUT", "EXPIRED"].includes(
-                    order.status
-                )
-            ) {
-                order.status = order.status;
+                if (data.status) {
+                    const status = data.status.toUpperCase();
+
+                    switch (status) {
+                        case "FINISHED":
+                            order.status = "FINISHED";
+                            break;
+
+                        case "CANCELLED":
+                            order.status = "CANCELLED";
+                            break;
+
+                        case "TIMEOUT":
+                        case "EXPIRED":
+                            order.status = "EXPIRED";
+                            break;
+
+                        default:
+                            order.status = "PENDING";
+                    }
+                }
+
+                if (data.expires) {
+                    order.expires = new Date(data.expires);
+                }
             }
 
             await order.save();
+
         } catch (err) {
+
             console.error(
                 "5SIM sync failed:",
                 err.response?.data || err.message
             );
-            // Don't fail the request if 5SIM is temporarily unavailable.
-            // Return the latest data stored in MongoDB.
+
+            // Continue returning MongoDB data
         }
 
         return res.status(200).json({
@@ -989,7 +1030,9 @@ exports.getActiveOrders = async (req, res) => {
             order,
             sms: order.sms || [],
         });
+
     } catch (error) {
+
         console.error(error);
 
         return res.status(500).json({
