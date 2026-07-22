@@ -527,6 +527,71 @@ REFRESH SMS
 =====================================================
 */
 
+// exports.refreshSMS = async (req, res) => {
+//     try {
+//         const userId = req.user.id;
+//         const { orderId } = req.params;
+
+//         const order = await NumberOrder.findOne({
+//             _id: orderId,
+//             user: userId,
+//         });
+
+//         if (!order) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: "Order not found.",
+//             });
+//         }
+
+//         const response = await fiveSim.get(
+//             `/user/check/${order.orderId}`
+//         );
+
+//         const data = response.data;
+
+//         const smsList = Array.isArray(data.sms)
+//             ? data.sms.map((sms) => ({
+//                   code: sms.code || "",
+//                   text: sms.text || "",
+//                   sender: sms.sender || "",
+//                   createdAt: sms.created_at
+//                       ? new Date(sms.created_at)
+//                       : new Date(),
+//               }))
+//             : [];
+
+//         order.sms = smsList;
+
+//         if (smsList.length > 0) {
+//             order.status = "RECEIVED";
+//         }
+
+//         if (data.expires) {
+//             order.expires = new Date(data.expires);
+//         }
+
+//         await order.save();
+
+//         return res.status(200).json({
+//             success: true,
+//             sms: order.sms,
+//             order,
+//         });
+
+//     } catch (error) {
+
+//         console.error(error.response?.data || error.message);
+
+//         return res.status(500).json({
+//             success: false,
+//             message:
+//                 error.response?.data?.message ||
+//                 "Unable to refresh SMS.",
+//         });
+//     }
+// };
+
 exports.refreshSMS = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -544,6 +609,10 @@ exports.refreshSMS = async (req, res) => {
             });
         }
 
+        // Keep previous SMS count
+        const previousSmsCount = order.sms?.length || 0;
+
+        // Fetch latest order from 5SIM
         const response = await fiveSim.get(
             `/user/check/${order.orderId}`
         );
@@ -561,26 +630,56 @@ exports.refreshSMS = async (req, res) => {
               }))
             : [];
 
+        // Check whether a new SMS arrived
+        const hasNewSms = smsList.length > previousSmsCount;
+
         order.sms = smsList;
 
-        if (smsList.length > 0) {
-            order.status = "RECEIVED";
-        }
-
+        // Sync expiry
         if (data.expires) {
             order.expires = new Date(data.expires);
+        }
+
+        // Sync status
+        switch (data.status) {
+            case "RECEIVED":
+                order.status = "RECEIVED";
+                break;
+
+            case "FINISHED":
+                order.status = "FINISHED";
+                break;
+
+            case "CANCELED":
+                order.status = "CANCELLED";
+                break;
+
+            case "TIMEOUT":
+                order.status = "EXPIRED";
+                break;
+
+            default:
+                if (smsList.length > 0) {
+                    order.status = "RECEIVED";
+                } else {
+                    order.status = "WAITING";
+                }
         }
 
         await order.save();
 
         return res.status(200).json({
             success: true,
+            hasNewSms,
+            latestSms:
+                smsList.length > 0
+                    ? smsList[smsList.length - 1]
+                    : null,
             sms: order.sms,
             order,
         });
 
     } catch (error) {
-
         console.error(error.response?.data || error.message);
 
         return res.status(500).json({
