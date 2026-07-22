@@ -1181,22 +1181,13 @@ AUTO EXPIRE ORDERS
 */
 
 exports.expireOrders = async () => {
-
     try {
-
         const now = new Date();
 
         await NumberOrder.updateMany(
             {
-                status: {
-                    $in: [
-                        "PENDING",
-                        "RECEIVED"
-                    ]
-                },
-                expires: {
-                    $lt: now
-                }
+                status: "PENDING",
+                expires: { $lt: now }
             },
             {
                 $set: {
@@ -1206,14 +1197,8 @@ exports.expireOrders = async () => {
         );
 
     } catch (err) {
-
-        console.log(
-            "Expire Orders:",
-            err.message
-        );
-
+        console.log("Expire Orders:", err.message);
     }
-
 };
 
 
@@ -1223,81 +1208,122 @@ SYNC ACTIVE ORDERS
 =====================================================
 */
 
-exports.syncOrders = async () => {
+/*
+=====================================================
+SYNC ACTIVE ORDERS
+=====================================================
+*/
 
+exports.syncOrders = async () => {
     try {
 
+        // Only sync orders still waiting for an SMS
         const orders = await NumberOrder.find({
-            status: {
-                $in: [
-                    "PENDING",
-                    "RECEIVED"
-                ]
-            }
+            status: "PENDING"
         });
 
         for (const order of orders) {
 
             try {
 
-                const response =
-                    await fiveSim.get(
-                        `/user/check/${order.orderId}`
-                    );
+                const response = await fiveSim.get(
+                    `/user/check/${order.orderId}`
+                );
 
                 const data = response.data;
 
-                order.sms = data.sms || [];
+                const smsList = Array.isArray(data.sms)
+                    ? data.sms.map((sms) => ({
+                          code: sms.code || "",
+                          text: sms.text || "",
+                          sender: sms.sender || "",
+                          createdAt: sms.created_at
+                              ? new Date(sms.created_at)
+                              : new Date(),
+                      }))
+                    : [];
 
-                if (
-                    data.sms &&
-                    data.sms.length
-                ) {
-                    order.status =
-                        "RECEIVED";
+                /*
+                ========================================
+                SMS RECEIVED
+                ========================================
+                */
+
+                if (smsList.length > 0) {
+
+                    order.sms = smsList;
+
+                    // Lock the order
+                    order.status = "RECEIVED";
+
+                    // Freeze expiry so it cannot expire/refund
+                    order.expires = new Date();
+
+                    await order.save();
+
+                    // Stop processing this order
+                    continue;
                 }
 
-                if (
-                    data.status ===
-                    "FINISHED"
-                ) {
-                    order.status =
-                        "FINISHED";
-                }
-
-                if (
-                    data.status ===
-                    "CANCELLED"
-                ) {
-                    order.status =
-                        "CANCELLED";
-                }
+                /*
+                ========================================
+                STILL WAITING FOR SMS
+                ========================================
+                */
 
                 if (data.expires) {
-                    order.expires =
-                        new Date(
-                            data.expires
-                        );
+                    order.expires = new Date(data.expires);
+                }
+
+                if (data.status) {
+
+                    const status = data.status.toUpperCase();
+
+                    switch (status) {
+
+                        case "PENDING":
+                        case "RECEIVED":
+                            order.status = "PENDING";
+                            break;
+
+                        case "FINISHED":
+                            order.status = "FINISHED";
+                            break;
+
+                        case "CANCELLED":
+                            order.status = "CANCELLED";
+                            break;
+
+                        case "TIMEOUT":
+                        case "EXPIRED":
+                            order.status = "EXPIRED";
+                            break;
+
+                        default:
+                            break;
+                    }
                 }
 
                 await order.save();
 
-            } catch (e) {
+            } catch (err) {
 
-                console.log(
-                    `Unable to sync ${order.orderId}`
+                console.error(
+                    `Unable to sync order ${order.orderId}:`,
+                    err.response?.data || err.message
                 );
 
+                // Continue syncing remaining orders
+                continue;
             }
-
         }
 
     } catch (err) {
 
-        console.log(err.message);
+        console.error(
+            "syncOrders:",
+            err.response?.data || err.message
+        );
 
     }
-
 };
-
-
