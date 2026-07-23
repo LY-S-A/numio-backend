@@ -14,6 +14,7 @@ const {
   getProfile,
   getServices,
   getCountries,
+  getInbox,
 } = require("../controllers/fiveSimController");
 
 const { protect } = require("../middleware/authMiddleware");
@@ -44,6 +45,9 @@ router.post("/cancel/:orderId", protect, cancelOrder);
 // Get active orders
 router.get("/active", protect, getActiveOrders);
 
+
+// Get SMS inbox (FINISHED orders with OTP only)
+router.get("/inbox", protect, getInbox);
 
 // Get order history
 router.get("/history", protect, getOrderHistory);
