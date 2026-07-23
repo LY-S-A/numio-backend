@@ -1031,6 +1031,46 @@ exports.getOrder = async (req, res) => {
 };
 
 
+exports.getInbox = async (req, res) => {
+    try {
+        const orders = await NumberOrder.find({
+            user: req.user.id,
+            status: "FINISHED",
+            sms: { $exists: true, $ne: [] }
+        })
+            .sort({ updatedAt: -1 })
+            .lean();
+
+        const messages = [];
+
+        orders.forEach(order => {
+            order.sms.forEach(sms => {
+                messages.push({
+                    id: `${order._id}-${sms.id || Date.now()}`,
+                    number: order.phone,
+                    app: order.service,
+                    country: order.country,
+                    code: sms.code || "",
+                    message: sms.text || sms.message || "",
+                    time: sms.created_at || order.updatedAt,
+                    status: "Read"
+                });
+            });
+        });
+
+        res.json({
+            success: true,
+            messages
+        });
+
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            message: err.message
+        });
+    }
+};
+
 /*
 =====================================================
 DELETE ORDER
