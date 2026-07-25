@@ -5,6 +5,7 @@ const cors = require("cors");
 
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
+const activityRoutes = require("./routes/activityRoutes");
 const userRoutes = require("./routes/userRoutes");
 const flutterwaveRoutes = require("./routes/flutterwaveRoutes");
 const paystackRoutes = require("./routes/paystackRoutes");
@@ -53,6 +54,7 @@ app.get("/", (req, res) => {
 
 // ================= ROUTES =================
 app.use("/api/auth", authRoutes);
+app.use("/api/activity", activityRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/flutterwave", flutterwaveRoutes);
 app.use("/api/paystack", paystackRoutes);
