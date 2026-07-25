@@ -66,3 +66,107 @@ exports.getLiveActivities = async (req, res) => {
         });
     }
 };
+
+// DASHBOARD STATS
+exports.getDashboardStats = async (req,res)=>{
+
+try {
+
+    const userId = req.user.id;
+
+
+    const activeNumbers = await NumberOrder.countDocuments({
+        user:userId,
+        status:{
+            $in:[
+                "PENDING",
+                "ACTIVE"
+            ]
+        }
+    });
+
+
+    const smsReceived = await NumberOrder.aggregate([
+        {
+            $match:{
+                user:userId
+            }
+        },
+        {
+            $project:{
+                totalSMS:{
+                    $size:"$sms"
+                }
+            }
+        },
+        {
+            $group:{
+                _id:null,
+                total:{
+                    $sum:"$totalSMS"
+                }
+            }
+        }
+    ]);
+
+
+    const totalSpent = await Transaction.aggregate([
+        {
+            $match:{
+                user:userId,
+                type:"PURCHASE",
+                status:"SUCCESS"
+            }
+        },
+        {
+            $group:{
+                _id:null,
+                total:{
+                    $sum:"$amount"
+                }
+            }
+        }
+    ]);
+
+
+    const totalOrders = await NumberOrder.countDocuments({
+        user:userId
+    });
+
+
+
+    res.json({
+
+        success:true,
+
+        stats:{
+            activeNumbers,
+            smsReceived:
+                smsReceived[0]?.total || 0,
+
+            totalSpent:
+                totalSpent[0]?.total || 0,
+
+            totalOrders
+        }
+
+    });
+
+
+
+}catch(err){
+
+    console.error(
+        "Dashboard stats error:",
+        err
+    );
+
+
+    res.status(500).json({
+        success:false,
+        message:"Failed to load dashboard stats"
+    });
+
+}
+
+};
