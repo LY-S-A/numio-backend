@@ -45,7 +45,7 @@ exports.getLiveActivities = async (req, res) => {
         const purchaseActivities = purchases.map((item) => ({
             type: "purchase",
             email: item.user?.email || "Unknown",
-            action: `purchased ${capitalize(item.country)} ${capitalize(item.service)} number`,
+            action: `purchased ${capitalize(item.country)} ${capitalize(item.service)} Number`,
             status: "SUCCESS",
             success: true,
             createdAt: item.createdAt,
