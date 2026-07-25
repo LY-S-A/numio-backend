@@ -74,15 +74,15 @@ exports.getDashboardStats = async (req, res) => {
         const userId = req.user.id;
 
 
-        // Total successful transactions
+        // Number of successful wallet funding transactions
         const totalTransactions = await Transaction.countDocuments({
             user: userId,
+            type: "DEPOSIT",
             status: "SUCCESS",
         });
 
 
 
-        // Get finished orders only
         const finishedOrders = await NumberOrder.find({
             user: userId,
             status: "FINISHED",
@@ -90,12 +90,10 @@ exports.getDashboardStats = async (req, res) => {
 
 
 
-        // Total completed orders
         const totalOrders = finishedOrders.length;
 
 
 
-        // Count OTPs received successfully
         let smsReceived = 0;
 
 
@@ -113,7 +111,6 @@ exports.getDashboardStats = async (req, res) => {
 
 
 
-        // Total amount spent on finished orders
         const totalSpent = finishedOrders.reduce(
             (total, order) => {
                 return total + Number(order.price || 0);
@@ -123,7 +120,7 @@ exports.getDashboardStats = async (req, res) => {
 
 
 
-        res.status(200).json({
+        res.json({
 
             success: true,
 
@@ -132,7 +129,7 @@ exports.getDashboardStats = async (req, res) => {
                 smsReceived,
                 totalSpent,
                 totalOrders,
-            },
+            }
 
         });
 
@@ -147,11 +144,8 @@ exports.getDashboardStats = async (req, res) => {
 
 
         res.status(500).json({
-
-            success: false,
-
-            message: "Failed to load dashboard stats.",
-
+            success:false,
+            message:"Failed to load dashboard stats"
         });
 
     }
