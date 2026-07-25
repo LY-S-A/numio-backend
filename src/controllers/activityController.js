@@ -68,105 +68,94 @@ exports.getLiveActivities = async (req, res) => {
 };
 
 // DASHBOARD STATS
-exports.getDashboardStats = async (req,res)=>{
+exports.getDashboardStats = async (req, res) => {
+    try {
 
-try {
-
-    const userId = req.user.id;
-
-
-    const activeNumbers = await NumberOrder.countDocuments({
-        user:userId,
-        status:{
-            $in:[
-                "PENDING",
-                "ACTIVE"
-            ]
-        }
-    });
+        const userId = req.user.id;
 
 
-    const smsReceived = await NumberOrder.aggregate([
-        {
-            $match:{
-                user:userId
+        // Active numbers
+        const activeNumbers = await NumberOrder.countDocuments({
+            user: userId,
+            status: {
+                $in: [
+                    "PENDING",
+                    "RECEIVED"
+                ]
             }
-        },
-        {
-            $project:{
-                totalSMS:{
-                    $size:"$sms"
-                }
+        });
+
+
+
+        // Finished orders only
+        const finishedOrders = await NumberOrder.find({
+            user: userId,
+            status: "FINISHED"
+        })
+        .lean();
+
+
+
+        // Total orders
+        const totalOrders = finishedOrders.length;
+
+
+
+        // Count successful OTP received
+        let smsReceived = 0;
+
+
+        finishedOrders.forEach(order => {
+
+            if(order.sms && order.sms.length > 0){
+
+                smsReceived += order.sms.filter(
+                    sms => sms.code
+                ).length;
+
             }
-        },
-        {
-            $group:{
-                _id:null,
-                total:{
-                    $sum:"$totalSMS"
-                }
+
+        });
+
+
+
+        // Total spent on finished orders
+        const totalSpent = finishedOrders.reduce(
+            (sum, order) => {
+                return sum + Number(order.price || 0);
+            },
+            0
+        );
+
+
+
+        res.json({
+
+            success:true,
+
+            stats:{
+                activeNumbers,
+                smsReceived,
+                totalSpent,
+                totalOrders
             }
-        }
-    ]);
 
-
-    const totalSpent = await Transaction.aggregate([
-        {
-            $match:{
-                user:userId,
-                type:"PURCHASE",
-                status:"SUCCESS"
-            }
-        },
-        {
-            $group:{
-                _id:null,
-                total:{
-                    $sum:"$amount"
-                }
-            }
-        }
-    ]);
-
-
-    const totalOrders = await NumberOrder.countDocuments({
-        user:userId
-    });
+        });
 
 
 
-    res.json({
+    } catch(err){
 
-        success:true,
-
-        stats:{
-            activeNumbers,
-            smsReceived:
-                smsReceived[0]?.total || 0,
-
-            totalSpent:
-                totalSpent[0]?.total || 0,
-
-            totalOrders
-        }
-
-    });
+        console.error(
+            "Dashboard stats error:",
+            err
+        );
 
 
+        res.status(500).json({
+            success:false,
+            message:"Failed to load dashboard stats"
+        });
 
-}catch(err){
-
-    console.error(
-        "Dashboard stats error:",
-        err
-    );
-
-
-    res.status(500).json({
-        success:false,
-        message:"Failed to load dashboard stats"
-    });
-
-}
-
+    }
 };
