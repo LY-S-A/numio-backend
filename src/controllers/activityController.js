@@ -74,43 +74,37 @@ exports.getDashboardStats = async (req, res) => {
         const userId = req.user.id;
 
 
-        // Active numbers
-        const activeNumbers = await NumberOrder.countDocuments({
+        // Total successful transactions
+        const totalTransactions = await Transaction.countDocuments({
             user: userId,
-            status: {
-                $in: [
-                    "PENDING",
-                    "RECEIVED"
-                ]
-            }
+            status: "SUCCESS",
         });
 
 
 
-        // Finished orders only
+        // Get finished orders only
         const finishedOrders = await NumberOrder.find({
             user: userId,
-            status: "FINISHED"
-        })
-        .lean();
+            status: "FINISHED",
+        }).lean();
 
 
 
-        // Total orders
+        // Total completed orders
         const totalOrders = finishedOrders.length;
 
 
 
-        // Count successful OTP received
+        // Count OTPs received successfully
         let smsReceived = 0;
 
 
-        finishedOrders.forEach(order => {
+        finishedOrders.forEach((order) => {
 
-            if(order.sms && order.sms.length > 0){
+            if (order.sms && order.sms.length > 0) {
 
                 smsReceived += order.sms.filter(
-                    sms => sms.code
+                    (sms) => sms.code
                 ).length;
 
             }
@@ -119,42 +113,45 @@ exports.getDashboardStats = async (req, res) => {
 
 
 
-        // Total spent on finished orders
+        // Total amount spent on finished orders
         const totalSpent = finishedOrders.reduce(
-            (sum, order) => {
-                return sum + Number(order.price || 0);
+            (total, order) => {
+                return total + Number(order.price || 0);
             },
             0
         );
 
 
 
-        res.json({
+        res.status(200).json({
 
-            success:true,
+            success: true,
 
-            stats:{
-                activeNumbers,
+            stats: {
+                totalTransactions,
                 smsReceived,
                 totalSpent,
-                totalOrders
-            }
+                totalOrders,
+            },
 
         });
 
 
 
-    } catch(err){
+    } catch (error) {
 
         console.error(
             "Dashboard stats error:",
-            err
+            error
         );
 
 
         res.status(500).json({
-            success:false,
-            message:"Failed to load dashboard stats"
+
+            success: false,
+
+            message: "Failed to load dashboard stats.",
+
         });
 
     }
