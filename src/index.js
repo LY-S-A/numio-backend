@@ -18,7 +18,7 @@ const app = express();
 const allowedOrigins = [
   "http://localhost:3000",
   "https://numio-one.vercel.app",
-  "https://numioverify.store",
+  "https://www.numioverify.store",
 ];
 
 app.use(
