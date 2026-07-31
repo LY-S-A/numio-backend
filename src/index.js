@@ -2,6 +2,8 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+const cron = require("node-cron");
+const { syncOrders } = require("./controllers/fiveSimController");
 
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
@@ -82,20 +84,57 @@ app.use((err, req, res, next) => {
 });
 
 // ================= START SERVER =================
+// const PORT = process.env.PORT || 5000;
+
+// const startServer = async () => {
+//   try {
+//     await connectDB();
+
+//     app.listen(PORT, () => {
+//       console.log(`🚀 Server running on port ${PORT}`);
+//     });
+//   } catch (err) {
+//     console.error("❌ Failed to start server");
+//     console.error(err);
+//     process.exit(1);
+//   }
+// };
+
+// startServer();
+
+// // Sync pending orders every 15 seconds
+// cron.schedule("*/15 * * * * *", async () => {
+//   try {
+//     console.log("🔄 Syncing pending orders...");
+//     await syncOrders();
+//   } catch (err) {
+//     console.error("Cron sync failed:", err);
+//   }
+// });
+
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   try {
     await connectDB();
 
+    // Sync pending orders every 15 seconds
+    cron.schedule("*/15 * * * * *", async () => {
+      try {
+        console.log("🔄 Syncing pending orders...");
+        await syncOrders();
+      } catch (err) {
+        console.error("Cron sync failed:", err);
+      }
+    });
+
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
+
   } catch (err) {
     console.error("❌ Failed to start server");
     console.error(err);
     process.exit(1);
   }
 };
-
-startServer();
