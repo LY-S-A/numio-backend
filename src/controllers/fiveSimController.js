@@ -1481,32 +1481,56 @@ SYNC ACTIVE ORDERS
 
 //                 switch (status) {
 
+//                     /*
+//                     ========================================
+//                     STILL WAITING FOR OTP
+//                     ========================================
+//                     */
+
 //                     case "PENDING":
+//                     case "RECEIVED":
+//                         // 5SIM may return RECEIVED before any SMS arrives.
+//                         // Keep the order pending until smsList has messages.
 //                         order.status = "PENDING";
 //                         await order.save();
 //                         break;
 
-//                     case "RECEIVED":
-//                         order.status = "RECEIVED";
-//                         await order.save();
-//                         break;
+//                     /*
+//                     ========================================
+//                     ORDER FINISHED
+//                     ========================================
+//                     */
 
 //                     case "FINISHED":
 //                         order.status = "FINISHED";
 //                         await order.save();
 //                         break;
 
+//                     /*
+//                     ========================================
+//                     ORDER CANCELLED
+//                     ========================================
+//                     */
+
 //                     case "CANCELLED":
 //                         order.status = "CANCELLED";
 //                         await order.save();
 //                         break;
 
+//                     /*
+//                     ========================================
+//                     ORDER EXPIRED
+//                     ========================================
+//                     */
+
 //                     case "TIMEOUT":
 //                     case "EXPIRED": {
 
 //                         if (order.refunded) {
+
 //                             order.status = "EXPIRED";
 //                             await order.save();
+
 //                             continue;
 //                         }
 
@@ -1528,7 +1552,7 @@ SYNC ACTIVE ORDERS
 
 //                             await user.save({ session });
 
-//                             // Save refund transaction
+//                             // Create refund transaction
 //                             await Transaction.create(
 //                                 [{
 //                                     user: user._id,
@@ -1545,7 +1569,7 @@ SYNC ACTIVE ORDERS
 //                                 { session }
 //                             );
 
-//                             // Update order
+//                             // Update expired order
 //                             await NumberOrder.updateOne(
 //                                 { _id: order._id },
 //                                 {
@@ -1577,7 +1601,6 @@ SYNC ACTIVE ORDERS
 
 //                         }
 
-//                         // Don't save again outside the transaction
 //                         continue;
 //                     }
 
@@ -1607,11 +1630,18 @@ SYNC ACTIVE ORDERS
 // };
 
 exports.syncOrders = async () => {
+
     try {
 
         const orders = await NumberOrder.find({
-            status: "PENDING"
+            status: {
+                $in: [
+                    "PENDING",
+                    "RECEIVED"
+                ]
+            }
         });
+
 
         for (const order of orders) {
 
@@ -1621,18 +1651,29 @@ exports.syncOrders = async () => {
                     `/user/check/${order.orderId}`
                 );
 
+
                 const data = response.data;
+
+
+                console.log(
+                    "5SIM SYNC:",
+                    order.orderId,
+                    data.status
+                );
+
 
                 const smsList = Array.isArray(data.sms)
                     ? data.sms.map((sms) => ({
-                          code: sms.code || "",
-                          text: sms.text || "",
-                          sender: sms.sender || "",
-                          createdAt: sms.created_at
-                              ? new Date(sms.created_at)
-                              : new Date(),
-                      }))
+                        code: sms.code || "",
+                        text: sms.text || "",
+                        sender: sms.sender || "",
+                        createdAt: sms.created_at
+                            ? new Date(sms.created_at)
+                            : new Date()
+                    }))
                     : [];
+
+
 
                 /*
                 ========================================
@@ -1642,178 +1683,462 @@ exports.syncOrders = async () => {
 
                 if (smsList.length > 0) {
 
+
                     order.sms = smsList;
+
                     order.status = "RECEIVED";
+
                     order.expires = null;
+
 
                     await order.save();
 
+
                     continue;
+
                 }
+
+
 
                 /*
                 ========================================
-                UPDATE EXPIRY
+                UPDATE EXPIRY TIME
                 ========================================
                 */
 
                 if (data.expires) {
+
                     order.expires = new Date(data.expires);
+
                 }
 
+
+
                 if (!data.status) {
+
                     await order.save();
+
                     continue;
+
                 }
+
+
 
                 const status = data.status.toUpperCase();
 
-                switch (status) {
+
+
+                switch(status) {
+
 
                     /*
                     ========================================
-                    STILL WAITING FOR OTP
+                    WAITING FOR SMS
                     ========================================
                     */
 
                     case "PENDING":
+
+                    case "WAITING":
+
                     case "RECEIVED":
-                        // 5SIM may return RECEIVED before any SMS arrives.
-                        // Keep the order pending until smsList has messages.
+
+
                         order.status = "PENDING";
+
+
                         await order.save();
+
+
                         break;
+
+
+
 
                     /*
                     ========================================
-                    ORDER FINISHED
+                    CANCELLED FROM 5SIM
                     ========================================
                     */
 
-                    case "FINISHED":
-                        order.status = "FINISHED";
-                        await order.save();
-                        break;
+                    case "CANCEL":
 
-                    /*
-                    ========================================
-                    ORDER CANCELLED
-                    ========================================
-                    */
+                    case "CANCELED":
 
-                    case "CANCELLED":
-                        order.status = "CANCELLED";
-                        await order.save();
-                        break;
+                    case "CANCELLED": {
 
-                    /*
-                    ========================================
-                    ORDER EXPIRED
-                    ========================================
-                    */
-
-                    case "TIMEOUT":
-                    case "EXPIRED": {
 
                         if (order.refunded) {
 
-                            order.status = "EXPIRED";
+
+                            order.status = "CANCELLED";
+
                             await order.save();
 
+
                             continue;
+
                         }
+
+
 
                         const session = await mongoose.startSession();
 
+
+
                         try {
 
+
                             session.startTransaction();
+
+
 
                             const user = await User.findById(order.user)
                                 .session(session);
 
+
+
                             if (!user) {
-                                throw new Error("User not found.");
+
+                                throw new Error(
+                                    "User not found"
+                                );
+
                             }
 
+
+
                             // Refund wallet
+
                             user.wallet += order.price;
 
-                            await user.save({ session });
 
-                            // Create refund transaction
+
+                            await user.save({
+                                session
+                            });
+
+
+
+
+
                             await Transaction.create(
-                                [{
-                                    user: user._id,
-                                    reference: generateReference(),
-                                    amount: order.price,
-                                    currency: "NGN",
-                                    provider: "SYSTEM",
-                                    type: "REFUND",
-                                    status: "SUCCESS",
-                                    gatewayTransactionId: String(order.orderId),
-                                    paymentMethod: "Wallet",
-                                    description: `Refund for expired ${order.service} number`,
-                                }],
-                                { session }
+                                [
+                                    {
+                                        user: user._id,
+
+                                        reference: generateReference(),
+
+                                        amount: order.price,
+
+                                        currency: "NGN",
+
+                                        provider: "SYSTEM",
+
+                                        type: "REFUND",
+
+                                        status: "SUCCESS",
+
+                                        gatewayTransactionId:
+                                            String(order.orderId),
+
+                                        paymentMethod:
+                                            "Wallet",
+
+                                        description:
+                                            `Refund for cancelled ${order.service} number`
+                                    }
+                                ],
+                                {
+                                    session
+                                }
                             );
 
-                            // Update expired order
+
+
+
+
                             await NumberOrder.updateOne(
-                                { _id: order._id },
                                 {
-                                    $set: {
-                                        status: "EXPIRED",
-                                        refunded: true,
-                                        phone: null,
-                                        sms: [],
-                                        expires: null,
-                                    },
+                                    _id: order._id
                                 },
-                                { session }
+                                {
+                                    $set:{
+                                        status:"CANCELLED",
+
+                                        refunded:true,
+
+                                        phone:null,
+
+                                        sms:[],
+
+                                        expires:null
+                                    }
+                                },
+                                {
+                                    session
+                                }
                             );
+
+
 
                             await session.commitTransaction();
 
-                        } catch (err) {
+
+
+                        } catch(err) {
+
 
                             await session.abortTransaction();
 
+
+
                             console.error(
-                                `Refund failed for ${order.orderId}:`,
+                                `Cancel refund failed ${order.orderId}:`,
                                 err.message
                             );
 
+
                         } finally {
+
 
                             session.endSession();
 
+
                         }
 
-                        continue;
+
+
+                        break;
+
                     }
 
-                    default:
+
+
+
+
+                    /*
+                    ========================================
+                    FINISHED
+                    ========================================
+                    */
+
+                    case "FINISHED":
+
+
+                        order.status = "FINISHED";
+
+
+                        await order.save();
+
+
                         break;
+
+
+
+
+
+
+                    /*
+                    ========================================
+                    EXPIRED / TIMEOUT
+                    ========================================
+                    */
+
+                    case "TIMEOUT":
+
+                    case "EXPIRED": {
+
+
+                        if (order.refunded) {
+
+
+                            order.status = "EXPIRED";
+
+
+                            await order.save();
+
+
+                            continue;
+
+                        }
+
+
+
+
+                        const session = await mongoose.startSession();
+
+
+
+                        try {
+
+
+                            session.startTransaction();
+
+
+
+                            const user =
+                                await User.findById(order.user)
+                                    .session(session);
+
+
+
+                            if (!user) {
+
+                                throw new Error(
+                                    "User not found"
+                                );
+
+                            }
+
+
+
+                            user.wallet += order.price;
+
+
+
+                            await user.save({
+                                session
+                            });
+
+
+
+
+
+                            await Transaction.create(
+                                [
+                                    {
+
+                                        user:user._id,
+
+                                        reference:generateReference(),
+
+                                        amount:order.price,
+
+                                        currency:"NGN",
+
+                                        provider:"SYSTEM",
+
+                                        type:"REFUND",
+
+                                        status:"SUCCESS",
+
+                                        gatewayTransactionId:
+                                            String(order.orderId),
+
+                                        paymentMethod:"Wallet",
+
+                                        description:
+                                            `Refund for expired ${order.service} number`
+                                    }
+                                ],
+                                {
+                                    session
+                                }
+                            );
+
+
+
+
+
+                            await NumberOrder.updateOne(
+                                {
+                                    _id:order._id
+                                },
+                                {
+                                    $set:{
+                                        status:"EXPIRED",
+
+                                        refunded:true,
+
+                                        phone:null,
+
+                                        sms:[],
+
+                                        expires:null
+                                    }
+                                },
+                                {
+                                    session
+                                }
+                            );
+
+
+
+
+                            await session.commitTransaction();
+
+
+
+                        } catch(err) {
+
+
+                            await session.abortTransaction();
+
+
+
+                            console.error(
+                                `Expire refund failed ${order.orderId}:`,
+                                err.message
+                            );
+
+
+                        } finally {
+
+
+                            session.endSession();
+
+
+                        }
+
+
+
+                        break;
+
+                    }
+
+
+
+
+
+                    default:
+
+                        console.log(
+                            "Unknown 5SIM status:",
+                            status
+                        );
+
+                        break;
+
+
                 }
 
-            } catch (err) {
+
+
+            } catch(err) {
+
 
                 console.error(
                     `Unable to sync order ${order.orderId}:`,
                     err.response?.data || err.message
                 );
 
-                continue;
+
             }
+
         }
 
-    } catch (err) {
+
+
+    } catch(err) {
+
 
         console.error(
             "syncOrders:",
             err.response?.data || err.message
         );
 
+
     }
+
 };
