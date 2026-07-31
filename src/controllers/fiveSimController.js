@@ -1388,74 +1388,148 @@ exports.syncOrders = async () => {
                             order.status = "CANCELLED";
                             break;
 
-                        case "TIMEOUT":
-                        case "EXPIRED": {
+                        // case "TIMEOUT":
+                        // case "EXPIRED": {
 
-                            order.status = "EXPIRED";
+                        //     order.status = "EXPIRED";
 
-                            // Refund only once and only if no SMS was received
-                            if (
-                                (!order.sms || order.sms.length === 0) &&
-                                !order.refunded
-                            ) {
+                        //     // Refund only once and only if no SMS was received
+                        //     if (
+                        //         (!order.sms || order.sms.length === 0) &&
+                        //         !order.refunded
+                        //     ) {
 
-                                const session = await mongoose.startSession();
+                        //         const session = await mongoose.startSession();
 
-                                try {
+                        //         try {
 
-                                    session.startTransaction();
+                        //             session.startTransaction();
 
-                                    const user = await User.findById(order.user)
-                                        .session(session);
+                        //             const user = await User.findById(order.user)
+                        //                 .session(session);
 
-                                    if (!user) {
-                                        throw new Error("User not found.");
-                                    }
+                        //             if (!user) {
+                        //                 throw new Error("User not found.");
+                        //             }
 
-                                    user.wallet += order.price;
+                        //             user.wallet += order.price;
 
-                                    await user.save({ session });
+                        //             await user.save({ session });
 
-                                    await Transaction.create(
-                                        [{
-                                            user: user._id,
-                                            reference: generateReference(),
-                                            amount: order.price,
-                                            currency: "NGN",
-                                            provider: "SYSTEM",
-                                            type: "REFUND",
-                                            status: "SUCCESS",
-                                            gatewayTransactionId: String(order.orderId),
-                                            paymentMethod: "Wallet",
-                                            description: `Refund for expired ${order.service} number`,
-                                        }],
-                                        { session }
-                                    );
+                        //             await Transaction.create(
+                        //                 [{
+                        //                     user: user._id,
+                        //                     reference: generateReference(),
+                        //                     amount: order.price,
+                        //                     currency: "NGN",
+                        //                     provider: "SYSTEM",
+                        //                     type: "REFUND",
+                        //                     status: "SUCCESS",
+                        //                     gatewayTransactionId: String(order.orderId),
+                        //                     paymentMethod: "Wallet",
+                        //                     description: `Refund for expired ${order.service} number`,
+                        //                 }],
+                        //                 { session }
+                        //             );
 
-                                    order.refunded = true;
+                        //             order.refunded = true;
 
-                                    await order.save({ session });
+                        //             await order.save({ session });
 
-                                    await session.commitTransaction();
+                        //             await session.commitTransaction();
 
-                                } catch (err) {
+                        //         } catch (err) {
 
-                                    await session.abortTransaction();
+                        //             await session.abortTransaction();
 
-                                    console.error(
-                                        `Refund failed for ${order.orderId}:`,
-                                        err.message
-                                    );
+                        //             console.error(
+                        //                 `Refund failed for ${order.orderId}:`,
+                        //                 err.message
+                        //             );
 
-                                } finally {
+                        //         } finally {
 
-                                    session.endSession();
+                        //             session.endSession();
 
-                                }
-                            }
+                        //         }
+                        //     }
 
-                            break;
-                        }
+                        //     break;
+                        // }
+
+                            case "TIMEOUT":
+case "EXPIRED": {
+
+    order.status = "EXPIRED";
+
+    if (
+        (!order.sms || order.sms.length === 0) &&
+        !order.refunded
+    ) {
+
+        const session = await mongoose.startSession();
+
+        try {
+
+            session.startTransaction();
+
+            const user = await User.findById(order.user)
+                .session(session);
+
+            if (!user) {
+                throw new Error("User not found.");
+            }
+
+            // Refund wallet
+            user.wallet += order.price;
+
+            await user.save({ session });
+
+            // Save refund transaction
+            await Transaction.create(
+                [{
+                    user: user._id,
+                    reference: generateReference(),
+                    amount: order.price,
+                    currency: "NGN",
+                    provider: "SYSTEM",
+                    type: "REFUND",
+                    status: "SUCCESS",
+                    gatewayTransactionId: String(order.orderId),
+                    paymentMethod: "Wallet",
+                    description: `Refund for expired ${order.service} number`,
+                }],
+                { session }
+            );
+
+            // Clear expired number
+            order.phone = null;
+            order.sms = [];
+            order.expires = null;
+            order.refunded = true;
+
+            await order.save({ session });
+
+            await session.commitTransaction();
+
+        } catch (err) {
+
+            await session.abortTransaction();
+
+            console.error(
+                `Refund failed for ${order.orderId}:`,
+                err.message
+            );
+
+        } finally {
+
+            session.endSession();
+
+        }
+    }
+
+    break;
+}
 
                         default:
                             break;
