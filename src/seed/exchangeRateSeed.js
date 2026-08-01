@@ -7,7 +7,7 @@ const exchangeRates = [
     {
         baseCurrency: "USD",
         targetCurrency: "NGN",
-        rate: 1700,
+        rate: 1400,
         provider: "SYSTEM",
         enabled: true,
     },
