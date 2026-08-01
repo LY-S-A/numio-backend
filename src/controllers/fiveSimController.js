@@ -1768,13 +1768,11 @@ console.log(
 
                     //     break;
 
-                case "PENDING":
+               case "PENDING":
 
 case "WAITING":
 
-    order.status = smsList.length > 0
-        ? "RECEIVED"
-        : "PENDING";
+    order.status = "PENDING";
 
     await order.save();
 
@@ -1787,8 +1785,6 @@ case "RECEIVED":
     await order.save();
 
     break;
-
-
 
 
                     /*
