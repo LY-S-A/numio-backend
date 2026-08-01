@@ -705,7 +705,6 @@ UPDATE ORDER
         order.refunded = true;
 
         // Optional cleanup
-        order.phone = null;
         order.sms = [];
         order.expires = null;
 
