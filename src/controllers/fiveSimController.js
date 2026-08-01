@@ -648,16 +648,6 @@ exports.cancelOrder = async (req, res) => {
 
         /*
         ===========================
-        UPDATE ORDER
-        ===========================
-        */
-
-        order.status = "CANCELLED";
-
-        await order.save({ session });
-
-        /*
-        ===========================
         REFUND USER
         ===========================
         */
@@ -704,6 +694,22 @@ exports.cancelOrder = async (req, res) => {
             ],
             { session }
         );
+
+        /*
+===========================
+UPDATE ORDER
+===========================
+*/
+
+        order.status = "CANCELLED";
+        order.refunded = true;
+
+        // Optional cleanup
+        order.phone = null;
+        order.sms = [];
+        order.expires = null;
+
+        await order.save({ session });
 
         /*
         ===========================
