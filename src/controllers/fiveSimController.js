@@ -21,15 +21,6 @@ const fiveSim = axios.create({
 const generateReference = () =>
     `NUMIO-${Date.now()}-${uuid().slice(0, 8).toUpperCase()}`;
 
-// const convertPriceToNaira = (price) => {
-//     const rate = Number(process.env.USD_TO_NGN_RATE || 1500);
-//     const markup = Number(process.env.MARKUP_PERCENT || 100);
-
-//     const amount = Number(price) * rate;
-
-//     return Math.ceil(amount + (amount * markup) / 100);
-// };
-
 const getDisplayPrice = (products) => {
     const prices = Object.values(products)
         .map((item) =>
@@ -56,306 +47,11 @@ const getDisplayPrice = (products) => {
     return maxNgn - minNgn > 1000 ? max : min;
 };
 
-// exports.getServices = async (req, res) => {
-//     try {
-//         const { country } = req.query;
-
-//         if (!country) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "Country is required.",
-//             });
-//         }
-
-//         // Fetch all prices for the selected country
-//         const response = await fiveSim.get(
-//             `/guest/prices?country=${country}`
-//         );
-
-//         const countryPrices =
-//             response.data[country] || response.data;
-
-//         if (!countryPrices) {
-//             return res.status(404).json({
-//                 success: false,
-//                 message: "No services found for this country.",
-//             });
-//         }
-
-//         const services = [];
-
-//         // Configurable thresholds
-//         const PRICE_VARIANCE_THRESHOLD = Number(
-//             process.env.PRICE_VARIANCE_THRESHOLD || 1 // 100%
-//         );
-
-//         const MIN_ABSOLUTE_DIFFERENCE = Number(
-//             process.env.MIN_PRICE_DIFFERENCE || 2 // $2
-//         );
-
-//         for (const [serviceName, operators] of Object.entries(countryPrices)) {
-
-//             const prices = [];
-//             let totalCount = 0;
-
-//             for (const [operator, info] of Object.entries(operators)) {
-
-//                 const qty = Number(
-//                     info.count ??
-//                     info.Count ??
-//                     info.qty ??
-//                     0
-//                 );
-
-//                 if (qty <= 0) continue;
-
-//                 const usd = Number(
-//                     info.cost ??
-//                     info.Cost ??
-//                     info.price ??
-//                     info.Price ??
-//                     0
-//                 );
-
-//                 if (!usd) continue;
-
-//                 prices.push({
-//                     operator,
-//                     usd,
-//                     qty,
-//                 });
-
-//                 totalCount += qty;
-//             }
-
-//             if (!prices.length) continue;
-
-//             // Lowest -> Highest
-//             prices.sort((a, b) => a.usd - b.usd);
-
-//             const cheapest = prices[0];
-//             const highest = prices[prices.length - 1];
-
-//             // Percentage increase
-//             const percentageIncrease =
-//                 (highest.usd - cheapest.usd) / cheapest.usd;
-
-//             // Absolute difference
-//             const absoluteDifference =
-//                 highest.usd - cheapest.usd;
-
-//             // Show highest price only when BOTH conditions are met
-//             const display =
-//                 percentageIncrease >= PRICE_VARIANCE_THRESHOLD &&
-//                 absoluteDifference >= MIN_ABSOLUTE_DIFFERENCE
-//                     ? highest
-//                     : cheapest;
-
-//             services.push({
-//                 name: serviceName,
-//                 operator: display.operator,
-
-//                 usdPrice: display.usd,
-//                 ngnPrice: convertPriceToNaira(display.usd),
-
-//                 count: totalCount,
-
-//                 // Useful metadata
-//                 lowestUsdPrice: cheapest.usd,
-//                 highestUsdPrice: highest.usd,
-//                 percentageIncrease: Number(
-//                     (percentageIncrease * 100).toFixed(2)
-//                 ),
-//                 absoluteDifference: Number(
-//                     absoluteDifference.toFixed(2)
-//                 ),
-//             });
-//         }
-
-//         services.sort((a, b) =>
-//             a.name.localeCompare(b.name)
-//         );
-
-//         return res.status(200).json({
-//             success: true,
-//             total: services.length,
-//             services,
-//         });
-
-//     } catch (error) {
-//         console.error(
-//             error.response?.data || error.message
-//         );
-
-//         return res.status(500).json({
-//             success: false,
-//             message:
-//                 error.response?.data?.message ||
-//                 error.message ||
-//                 "Unable to fetch services.",
-//         });
-//     }
-// };
-
-// exports.getServices = async (req, res) => {
-
-//     try {
-
-//         const { country } = req.query;
-
-//         if (!country) {
-
-//             return res.status(400).json({
-
-//                 success: false,
-
-//                 message: "Country is required."
-
-//             });
-
-//         }
-
-//         const response = await fiveSim.get(
-
-//             `/guest/prices?country=${country}`
-
-//         );
-
-//         const countryPrices =
-
-//             response.data[country] ||
-
-//             response.data;
-
-//         if (!countryPrices) {
-
-//             return res.status(404).json({
-
-//                 success: false,
-
-//                 message: "No services found."
-
-//             });
-
-//         }
-
-//         const services = [];
-
-//         for (const [serviceName, operators] of Object.entries(countryPrices)) {
-
-//             try {
-
-//                 const pricing =
-
-//                     await pricingEngine({
-
-//                         country,
-
-//                         service: serviceName,
-
-//                         operators,
-
-//                     });
-
-//                 const totalStock = Object.values(operators)
-
-//                     .reduce((total, item) =>
-
-//                         total +
-
-//                         Number(
-
-//                             item.count ??
-
-//                             item.Count ??
-
-//                             item.qty ??
-
-//                             0
-
-//                         ),
-
-//                         0
-
-//                     );
-
-//                 services.push({
-
-//                     name: serviceName,
-
-//                     operator: pricing.operator,
-
-//                     usdPrice: pricing.usdPrice,
-
-//                     ngnPrice: pricing.ngnPrice,
-
-//                     count: totalStock,
-
-//                 });
-
-//             }
-
-//             catch (err) {
-
-//                 console.error(
-
-//                     `Pricing failed for ${serviceName}:`,
-
-//                     err.message
-
-//                 );
-
-//             }
-
-//         }
-
-//         services.sort(
-
-//             (a, b) =>
-
-//                 a.name.localeCompare(b.name)
-
-//         );
-
-//         return res.json({
-
-//             success: true,
-
-//             total: services.length,
-
-//             services,
-
-//         });
-
-//     }
-
-//     catch (err) {
-
-//         console.error(
-
-//             err.response?.data ||
-
-//             err.message
-
-//         );
-
-//         return res.status(500).json({
-
-//             success: false,
-
-//             message:
-
-//                 err.response?.data?.message ||
-
-//                 err.message ||
-
-//                 "Unable to fetch services."
-
-//         });
-
-//     }
-
-// };
+/*
+=====================================================
+GET SERVICES
+=====================================================
+*/
 
 exports.getServices = async (req, res) => {
 
@@ -584,278 +280,6 @@ exports.getCountries = async (req, res) => {
 BUY NUMBER
 =====================================================
 */
-
-// exports.buyNumber = async (req, res) => {
-//     const session = await mongoose.startSession();
-
-//     try {
-//         session.startTransaction();
-
-//         const userId = req.user.id;
-//         const { service, country } = req.body;
-
-//         if (!service || !country) {
-//             await session.abortTransaction();
-//             session.endSession();
-
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "Service and country are required.",
-//             });
-//         }
-
-//         const user = await User.findById(userId).session(session);
-
-//         if (!user) {
-//             await session.abortTransaction();
-//             session.endSession();
-
-//             return res.status(404).json({
-//                 success: false,
-//                 message: "User not found.",
-//             });
-//         }
-
-//         /*
-//         ===========================
-//         BUY NUMBER FROM 5SIM
-//         ===========================
-//         */
-
-//         const response = await fiveSim.get(
-//             `/user/buy/activation/${country}/any/${service}`
-//         );
-
-//         const order = response.data;
-
-//         if (!order || !order.id) {
-//             throw new Error("Unable to purchase number.");
-//         }
-
-//         /*
-//         ===========================
-//         DETERMINE THE SAME PRICE
-//         SHOWN TO THE USER
-//         ===========================
-//         */
-
-//         const pricesRes = await fiveSim.get(
-//             `/guest/prices?country=${country}`
-//         );
-
-//         const countryPrices =
-//             pricesRes.data[country] || pricesRes.data;
-
-//         const operators = countryPrices?.[service];
-
-//         if (!operators) {
-//             throw new Error(
-//                 "Unable to determine service price."
-//             );
-//         }
-
-//         const PRICE_VARIANCE_THRESHOLD = Number(
-//             process.env.PRICE_VARIANCE_THRESHOLD || 1
-//         );
-
-//         const MIN_ABSOLUTE_DIFFERENCE = Number(
-//             process.env.MIN_PRICE_DIFFERENCE || 2
-//         );
-
-//         const prices = [];
-
-//         for (const info of Object.values(operators)) {
-
-//             const qty = Number(
-//                 info.count ??
-//                 info.Count ??
-//                 info.qty ??
-//                 0
-//             );
-
-//             if (qty <= 0) continue;
-
-//             const usd = Number(
-//                 info.cost ??
-//                 info.Cost ??
-//                 info.price ??
-//                 info.Price ??
-//                 0
-//             );
-
-//             if (!usd) continue;
-
-//             prices.push({
-//                 usd,
-//                 qty,
-//             });
-//         }
-
-//         if (!prices.length) {
-//             throw new Error(
-//                 "Unable to determine service price."
-//             );
-//         }
-
-//         prices.sort((a, b) => a.usd - b.usd);
-
-//         const cheapest = prices[0];
-//         const highest = prices[prices.length - 1];
-
-//         const percentageIncrease =
-//             (highest.usd - cheapest.usd) /
-//             cheapest.usd;
-
-//         const absoluteDifference =
-//             highest.usd - cheapest.usd;
-
-//         const displayPrice =
-//             percentageIncrease >=
-//                 PRICE_VARIANCE_THRESHOLD &&
-//             absoluteDifference >=
-//                 MIN_ABSOLUTE_DIFFERENCE
-//                 ? highest.usd
-//                 : cheapest.usd;
-
-//         const amount =
-//             convertPriceToNaira(displayPrice);
-
-//         /*
-//         ===========================
-//         CHECK WALLET
-//         ===========================
-//         */
-
-//         if (user.wallet < amount) {
-//             await session.abortTransaction();
-//             session.endSession();
-
-//             return res.status(400).json({
-//                 success: false,
-//                 message:
-//                     "Insufficient wallet balance.",
-//             });
-//         }
-
-//                /*
-//         ===========================
-//         DEDUCT WALLET
-//         ===========================
-//         */
-
-//         user.wallet -= amount;
-
-//         await user.save({ session });
-
-//         /*
-//         ===========================
-//         SAVE TRANSACTION
-//         ===========================
-//         */
-
-//         const transaction = await Transaction.create(
-//             [
-//                 {
-//                     user: user._id,
-
-//                     reference: generateReference(),
-
-//                     amount,
-
-//                     currency: "NGN",
-
-//                     provider: "SYSTEM",
-
-//                     type: "PURCHASE",
-
-//                     status: "SUCCESS",
-
-//                     gatewayTransactionId: String(order.id),
-
-//                     paymentMethod: "Wallet",
-
-//                     description: `Purchased ${service} number (${country})`,
-//                 },
-//             ],
-//             { session }
-//         );
-
-//         /*
-//         ===========================
-//         SAVE ORDER
-//         ===========================
-//         */
-
-//         const savedOrder = await NumberOrder.create(
-//             [
-//                 {
-//                     user: user._id,
-
-//                     orderId: order.id,
-
-//                     phone: order.phone,
-
-//                     country,
-
-//                     service,
-
-//                     operator: order.operator,
-
-//                     // User is charged exactly what was displayed
-//                     price: amount,
-
-//                     expires: order.expires
-//                         ? new Date(order.expires)
-//                         : null,
-
-//                     status: "PENDING",
-
-//                     sms: [],
-//                 },
-//             ],
-//             { session }
-//         );
-
-//                /*
-//         ===========================
-//         COMMIT TRANSACTION
-//         ===========================
-//         */
-
-//         await session.commitTransaction();
-//         session.endSession();
-
-//         return res.status(200).json({
-//             success: true,
-
-//             message: "Number purchased successfully.",
-
-//             wallet: user.wallet,
-
-//             order: savedOrder[0],
-
-//             transaction: transaction[0],
-//         });
-
-//     } catch (error) {
-
-//         await session.abortTransaction();
-//         session.endSession();
-
-//         console.error(
-//             error.response?.data || error.message
-//         );
-
-//         return res.status(500).json({
-//             success: false,
-//             message:
-//                 error.response?.data?.message ||
-//                 error.message ||
-//                 "Unable to purchase number.",
-//         });
-
-//     }
-// };
 
 exports.buyNumber = async (req, res) => {
     const session = await mongoose.startSession();
@@ -2236,22 +1660,22 @@ exports.syncOrders = async () => {
                 ========================================
                 */
 
-                if (smsList.length > 0) {
+                // if (smsList.length > 0) {
 
 
-                    order.sms = smsList;
+                //     order.sms = smsList;
 
-                    order.status = "RECEIVED";
+                //     order.status = "RECEIVED";
 
-                    order.expires = null;
-
-
-                    await order.save();
+                //     order.expires = null;
 
 
-                    continue;
+                //     await order.save();
 
-                }
+
+                //     continue;
+
+                // }
 
 
 
@@ -2261,27 +1685,64 @@ exports.syncOrders = async () => {
                 ========================================
                 */
 
-                if (data.expires) {
+                // if (data.expires) {
 
-                    order.expires = new Date(data.expires);
+                //     order.expires = new Date(data.expires);
 
-                }
-
-
-
-                if (!data.status) {
-
-                    await order.save();
-
-                    continue;
-
-                }
+                // }
 
 
 
-                const status = data.status.toUpperCase();
+                // if (!data.status) {
+
+                //     await order.save();
+
+                //     continue;
+
+                // }
 
 
+
+                // const status = data.status.toUpperCase();
+
+
+
+                /*
+========================================
+UPDATE SMS
+========================================
+*/
+
+if (smsList.length > 0) {
+    order.sms = smsList;
+}
+
+/*
+========================================
+UPDATE EXPIRY TIME
+========================================
+*/
+
+order.expires = data.expires
+    ? new Date(data.expires)
+    : null;
+
+if (!data.status) {
+
+    await order.save();
+
+    continue;
+
+}
+
+const status = String(data.status).toUpperCase();
+
+console.log(
+    "5SIM SYNC:",
+    order.orderId,
+    status,
+    `SMS: ${smsList.length}`
+);
 
                 switch(status) {
 
@@ -2292,20 +1753,40 @@ exports.syncOrders = async () => {
                     ========================================
                     */
 
-                    case "PENDING":
+                    // case "PENDING":
 
-                    case "WAITING":
+                    // case "WAITING":
 
-                    case "RECEIVED":
-
-
-                        order.status = "PENDING";
+                    // case "RECEIVED":
 
 
-                        await order.save();
+                    //     order.status = "PENDING";
 
 
-                        break;
+                    //     await order.save();
+
+
+                    //     break;
+
+                case "PENDING":
+
+case "WAITING":
+
+    order.status = smsList.length > 0
+        ? "RECEIVED"
+        : "PENDING";
+
+    await order.save();
+
+    break;
+
+case "RECEIVED":
+
+    order.status = "RECEIVED";
+
+    await order.save();
+
+    break;
 
 
 
@@ -2478,16 +1959,25 @@ exports.syncOrders = async () => {
                     ========================================
                     */
 
-                    case "FINISHED":
+                    // case "FINISHED":
 
 
-                        order.status = "FINISHED";
+                    //     order.status = "FINISHED";
 
 
-                        await order.save();
+                    //     await order.save();
 
 
-                        break;
+                    //     break;
+
+                        case "FINISHED":
+
+    order.status = "FINISHED";
+    order.expires = null;
+
+    await order.save();
+
+    break;
 
 
 
