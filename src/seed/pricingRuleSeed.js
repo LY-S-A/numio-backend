@@ -3,16 +3,6 @@ require("dotenv").config();
 
 const PricingRule = require("../models/PricingRule");
 
-// const pricingRules = [
-//     {
-//         type: "DEFAULT",
-//         strategy: "PERCENTAGE",
-//         value: 20,
-//         priority: 1,
-//         enabled: true,
-//     },
-// ]; 
-
 const pricingRules = [
 
     /*
