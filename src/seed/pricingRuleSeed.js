@@ -3,7 +3,24 @@ require("dotenv").config();
 
 const PricingRule = require("../models/PricingRule");
 
+// const pricingRules = [
+//     {
+//         type: "DEFAULT",
+//         strategy: "PERCENTAGE",
+//         value: 20,
+//         priority: 1,
+//         enabled: true,
+//     },
+// ];
+
 const pricingRules = [
+
+    /*
+    ==========================
+    DEFAULT FALLBACK
+    ==========================
+    */
+
     {
         type: "DEFAULT",
         strategy: "PERCENTAGE",
@@ -11,6 +28,92 @@ const pricingRules = [
         priority: 1,
         enabled: true,
     },
+
+
+    /*
+    ==========================
+    SERVICE FIXED PROFIT
+    ==========================
+    */
+
+
+    {
+        type: "RULE",
+
+        service: "whatsapp",
+
+        strategy: "FIXED",
+
+        value: 800,
+
+        priority: 50,
+
+        enabled: true,
+    },
+
+
+    {
+        type: "RULE",
+
+        service: "telegram",
+
+        strategy: "FIXED",
+
+        value: 500,
+
+        priority: 50,
+
+        enabled: true,
+    },
+
+
+    /*
+    ==========================
+    HIGH PRICE SERVICES
+    USD >= $4
+    ==========================
+    */
+
+
+    {
+        type: "THRESHOLD",
+
+        strategy: "PERCENTAGE",
+
+        value: 25,
+
+        minUsdPrice: 4,
+
+        priority: 20,
+
+        enabled: true,
+    },
+
+
+    /*
+    ==========================
+    COUNTRY OVERRIDE
+    FRANCE WHATSAPP
+    ==========================
+    */
+
+
+    {
+        type: "RULE",
+
+        country: "france",
+
+        service: "whatsapp",
+
+        strategy: "PERCENTAGE",
+
+        value: 25,
+
+        priority: 100,
+
+        enabled: true,
+    }
+
 ];
 
 const seedPricingRulesIfEmpty = async () => {
