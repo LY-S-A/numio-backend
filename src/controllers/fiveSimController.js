@@ -1753,38 +1753,40 @@ console.log(
                     ========================================
                     */
 
-                    // case "PENDING":
-
-                    // case "WAITING":
-
-                    // case "RECEIVED":
-
-
-                    //     order.status = "PENDING";
-
-
-                    //     await order.save();
-
-
-                    //     break;
-
+                    
                case "PENDING":
 
 case "WAITING":
 
-    order.status = "PENDING";
+                         if (order.status !== "RECEIVED") {
+            order.status = "PENDING";
+        }
 
-    await order.save();
+        await order.save();
 
-    break;
+        break;
 
-case "RECEIVED":
+    // order.status = "PENDING";
 
-    order.status = "RECEIVED";
+    // await order.save();
 
-    await order.save();
+    // break;
 
-    break;
+ /*
+    ========================================
+    SMS RECEIVED
+    ========================================
+    */
+
+    case "RECEIVED":
+
+        // Only mark as received if 5SIM actually returned an SMS
+        if (smsList.length > 0) {
+            order.status = "RECEIVED";
+            await order.save();
+        }
+
+        break;
 
 
                     /*
@@ -1974,10 +1976,6 @@ case "RECEIVED":
     await order.save();
 
     break;
-
-
-
-
 
 
                     /*
