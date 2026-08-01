@@ -7,7 +7,7 @@ const pricingRules = [
 
     /*
     ==========================
-    DEFAULT FALLBACK
+    DEFAULT FALLBACK 
     ==========================
     */
 
