@@ -14,6 +14,9 @@ const paystackRoutes = require("./routes/paystackRoutes");
 const transactionRoutes = require("./routes/transactionRoutes");
 const fiveSimRoutes = require("./routes/fiveSimRoutes");
 
+const seedPricingRulesIfEmpty = require("./seed/pricingRuleSeed");
+const seedExchangeRateIfEmpty = require("./seed/exchangeRateSeed");
+
 const app = express();
 
 // ================= CORS =================
@@ -84,15 +87,27 @@ app.use((err, req, res, next) => {
 });
 
 // ================= START SERVER =================
-// const PORT = process.env.PORT || 5000;
+
+const PORT = process.env.PORT || 5000;
 
 // const startServer = async () => {
 //   try {
 //     await connectDB();
 
+//     // Sync pending orders every 15 seconds
+//     cron.schedule("*/15 * * * * *", async () => {
+//       try {
+//         console.log("🔄 Syncing pending orders...");
+//         await syncOrders();
+//       } catch (err) {
+//         console.error("Cron sync failed:", err);
+//       }
+//     });
+
 //     app.listen(PORT, () => {
 //       console.log(`🚀 Server running on port ${PORT}`);
 //     });
+
 //   } catch (err) {
 //     console.error("❌ Failed to start server");
 //     console.error(err);
@@ -102,23 +117,17 @@ app.use((err, req, res, next) => {
 
 // startServer();
 
-// // Sync pending orders every 15 seconds
-// cron.schedule("*/15 * * * * *", async () => {
-//   try {
-//     console.log("🔄 Syncing pending orders...");
-//     await syncOrders();
-//   } catch (err) {
-//     console.error("Cron sync failed:", err);
-//   }
-// });
-
-const PORT = process.env.PORT || 5000;
-
 const startServer = async () => {
   try {
     await connectDB();
 
-    // Sync pending orders every 15 seconds
+    // ================= RUN SEEDERS =================
+    await seedPricingRulesIfEmpty();
+    await seedExchangeRateIfEmpty();
+
+    console.log("🌱 Seed check completed");
+
+    // ================= CRON =================
     cron.schedule("*/15 * * * * *", async () => {
       try {
         console.log("🔄 Syncing pending orders...");
