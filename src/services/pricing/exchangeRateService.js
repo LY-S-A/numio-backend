@@ -37,10 +37,9 @@ const ExchangeRate = require("../../models/ExchangeRate");
 let cachedRate = null;
 let lastFetched = 0;
 
-const CACHE_TIME = 5 * 60 * 1000; // 5 minutes
+const CACHE_TIME = 5 * 60 * 1000;
 
-const getRate = async () => {
-
+const getExchangeRate = async () => {
     const now = Date.now();
 
     if (
