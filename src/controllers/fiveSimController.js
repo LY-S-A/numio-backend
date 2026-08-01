@@ -197,7 +197,169 @@ const getDisplayPrice = (products) => {
 //     }
 // };
 
+// exports.getServices = async (req, res) => {
+
+//     try {
+
+//         const { country } = req.query;
+
+//         if (!country) {
+
+//             return res.status(400).json({
+
+//                 success: false,
+
+//                 message: "Country is required."
+
+//             });
+
+//         }
+
+//         const response = await fiveSim.get(
+
+//             `/guest/prices?country=${country}`
+
+//         );
+
+//         const countryPrices =
+
+//             response.data[country] ||
+
+//             response.data;
+
+//         if (!countryPrices) {
+
+//             return res.status(404).json({
+
+//                 success: false,
+
+//                 message: "No services found."
+
+//             });
+
+//         }
+
+//         const services = [];
+
+//         for (const [serviceName, operators] of Object.entries(countryPrices)) {
+
+//             try {
+
+//                 const pricing =
+
+//                     await pricingEngine({
+
+//                         country,
+
+//                         service: serviceName,
+
+//                         operators,
+
+//                     });
+
+//                 const totalStock = Object.values(operators)
+
+//                     .reduce((total, item) =>
+
+//                         total +
+
+//                         Number(
+
+//                             item.count ??
+
+//                             item.Count ??
+
+//                             item.qty ??
+
+//                             0
+
+//                         ),
+
+//                         0
+
+//                     );
+
+//                 services.push({
+
+//                     name: serviceName,
+
+//                     operator: pricing.operator,
+
+//                     usdPrice: pricing.usdPrice,
+
+//                     ngnPrice: pricing.ngnPrice,
+
+//                     count: totalStock,
+
+//                 });
+
+//             }
+
+//             catch (err) {
+
+//                 console.error(
+
+//                     `Pricing failed for ${serviceName}:`,
+
+//                     err.message
+
+//                 );
+
+//             }
+
+//         }
+
+//         services.sort(
+
+//             (a, b) =>
+
+//                 a.name.localeCompare(b.name)
+
+//         );
+
+//         return res.json({
+
+//             success: true,
+
+//             total: services.length,
+
+//             services,
+
+//         });
+
+//     }
+
+//     catch (err) {
+
+//         console.error(
+
+//             err.response?.data ||
+
+//             err.message
+
+//         );
+
+//         return res.status(500).json({
+
+//             success: false,
+
+//             message:
+
+//                 err.response?.data?.message ||
+
+//                 err.message ||
+
+//                 "Unable to fetch services."
+
+//         });
+
+//     }
+
+// };
+
 exports.getServices = async (req, res) => {
+
+    console.time("getServices");
 
     try {
 
@@ -205,125 +367,140 @@ exports.getServices = async (req, res) => {
 
         if (!country) {
 
+            console.timeEnd("getServices");
+
             return res.status(400).json({
-
                 success: false,
-
-                message: "Country is required."
-
+                message: "Country is required.",
             });
 
         }
 
+        console.time("5SIM Request");
+
         const response = await fiveSim.get(
-
             `/guest/prices?country=${country}`
-
         );
 
+        console.timeEnd("5SIM Request");
+
         const countryPrices =
-
             response.data[country] ||
-
             response.data;
 
         if (!countryPrices) {
 
+            console.timeEnd("getServices");
+
             return res.status(404).json({
-
                 success: false,
-
-                message: "No services found."
-
+                message: "No services found.",
             });
 
         }
 
-        const services = [];
+        console.log(
+            "Total services from 5SIM:",
+            Object.keys(countryPrices).length
+        );
 
-        for (const [serviceName, operators] of Object.entries(countryPrices)) {
+        console.time("Pricing Engine");
 
-            try {
+        const services = await Promise.all(
 
-                const pricing =
+            Object.entries(countryPrices).map(
 
-                    await pricingEngine({
+                async ([serviceName, operators]) => {
 
-                        country,
+                    try {
 
-                        service: serviceName,
+                        // Skip services with no operators
+                        if (
+                            !operators ||
+                            Object.keys(operators).length === 0
+                        ) {
+                            return null;
+                        }
 
-                        operators,
+                        // Calculate total stock first
+                        const totalStock = Object.values(operators)
+                            .reduce(
+                                (total, item) =>
+                                    total +
+                                    Number(
+                                        item.count ??
+                                        item.Count ??
+                                        item.qty ??
+                                        0
+                                    ),
+                                0
+                            );
 
-                    });
+                        // Skip if there is no stock
+                        if (totalStock <= 0) {
+                            return null;
+                        }
 
-                const totalStock = Object.values(operators)
+                        const pricing =
+                            await pricingEngine({
 
-                    .reduce((total, item) =>
+                                country,
 
-                        total +
+                                service: serviceName,
 
-                        Number(
+                                operators,
 
-                            item.count ??
+                            });
 
-                            item.Count ??
+                        return {
 
-                            item.qty ??
+                            name: serviceName,
 
-                            0
+                            operator: pricing.operator,
 
-                        ),
+                            usdPrice: pricing.usdPrice,
 
-                        0
+                            ngnPrice: pricing.ngnPrice,
 
-                    );
+                            count: totalStock,
 
-                services.push({
+                        };
 
-                    name: serviceName,
+                    }
 
-                    operator: pricing.operator,
+                    catch (err) {
 
-                    usdPrice: pricing.usdPrice,
+                        console.log(
+                            `${serviceName}: ${err.message}`
+                        );
 
-                    ngnPrice: pricing.ngnPrice,
+                        return null;
 
-                    count: totalStock,
+                    }
 
-                });
+                }
 
-            }
-
-            catch (err) {
-
-                console.error(
-
-                    `Pricing failed for ${serviceName}:`,
-
-                    err.message
-
-                );
-
-            }
-
-        }
-
-        services.sort(
-
-            (a, b) =>
-
-                a.name.localeCompare(b.name)
+            )
 
         );
+
+        console.timeEnd("Pricing Engine");
+
+        const validServices = services
+            .filter(Boolean)
+            .sort((a, b) =>
+                a.name.localeCompare(b.name)
+            );
+
+        console.timeEnd("getServices");
 
         return res.json({
 
             success: true,
 
-            total: services.length,
+            total: validServices.length,
 
-            services,
+            services: validServices,
 
         });
 
@@ -331,12 +508,10 @@ exports.getServices = async (req, res) => {
 
     catch (err) {
 
+        console.timeEnd("getServices");
+
         console.error(
-
-            err.response?.data ||
-
-            err.message
-
+            err.response?.data || err.message
         );
 
         return res.status(500).json({
@@ -344,12 +519,9 @@ exports.getServices = async (req, res) => {
             success: false,
 
             message:
-
                 err.response?.data?.message ||
-
                 err.message ||
-
-                "Unable to fetch services."
+                "Unable to fetch services.",
 
         });
 
