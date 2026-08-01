@@ -11,13 +11,21 @@ const pricingRules = [
     ==========================
     */
 
+    // {
+    //     type: "DEFAULT",
+    //     strategy: "PERCENTAGE",
+    //     value: 20,
+    //     priority: 1,
+    //     enabled: true,
+    // },
+
     {
-        type: "DEFAULT",
-        strategy: "PERCENTAGE",
-        value: 20,
-        priority: 1,
-        enabled: true,
-    },
+    type: "DEFAULT",
+    strategy: "FIXED",
+    value: 600,
+    priority: 1,
+    enabled: true,
+},
 
 
     /*
