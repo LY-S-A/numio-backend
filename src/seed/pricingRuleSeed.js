@@ -11,7 +11,7 @@ const PricingRule = require("../models/PricingRule");
 //         priority: 1,
 //         enabled: true,
 //     },
-// ];
+// ]; 
 
 const pricingRules = [
 
