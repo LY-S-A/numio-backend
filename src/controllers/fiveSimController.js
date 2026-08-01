@@ -266,7 +266,7 @@ exports.getCountries = async (req, res) => {
 
 
         return res.status(500).json({
-            success:false,
+            success: false,
             message:
                 error.response?.data?.message ||
                 "Unable to fetch countries."
@@ -531,13 +531,13 @@ exports.refreshSMS = async (req, res) => {
 
         const smsList = Array.isArray(data.sms)
             ? data.sms.map((sms) => ({
-                  code: sms.code || "",
-                  text: sms.text || "",
-                  sender: sms.sender || "",
-                  createdAt: sms.created_at
-                      ? new Date(sms.created_at)
-                      : new Date(),
-              }))
+                code: sms.code || "",
+                text: sms.text || "",
+                sender: sms.sender || "",
+                createdAt: sms.created_at
+                    ? new Date(sms.created_at)
+                    : new Date(),
+            }))
             : [];
 
         order.sms = smsList;
@@ -804,305 +804,6 @@ exports.finishOrder = async (req, res) => {
 GET ACTIVE ORDERS
 =====================================================
 */
-
-// exports.getActiveOrders = async (req, res) => {
-//     try {
-//         const userId = req.user.id;
-
-//         const order = await NumberOrder.findOne({
-//             user: userId,
-//             status: {
-//                 $nin: ["FINISHED", "CANCELLED", "EXPIRED"],
-//             },
-//         }).sort({ createdAt: -1 });
-
-//         if (!order) {
-//             return res.status(200).json({
-//                 success: true,
-//                 order: null,
-//                 sms: [],
-//             });
-//         }
-
-//         try {
-//             const response = await fiveSim.get(
-//                 `/user/check/${order.orderId}`
-//             );
-
-//             const data = response.data;
-
-//             // ==========================
-//             // MAP SMS
-//             // ==========================
-//             const smsList = Array.isArray(data.sms)
-//                 ? data.sms.map((sms) => ({
-//                       code: sms.code || "",
-//                       text: sms.text || "",
-//                       sender: sms.sender || "",
-//                       createdAt: sms.created_at
-//                           ? new Date(sms.created_at)
-//                           : new Date(),
-//                   }))
-//                 : [];
-
-//             // Update SMS only if changed
-//             if (
-//                 JSON.stringify(order.sms) !==
-//                 JSON.stringify(smsList)
-//             ) {
-//                 order.sms = smsList;
-//             }
-
-//             // ==========================
-//             // SMS RECEIVED
-//             // ==========================
-//             if (smsList.length > 0) {
-//                 order.status = "RECEIVED";
-
-//                 // Freeze expiry so background jobs
-//                 // cannot later mark it EXPIRED.
-//                 order.expires = null;
-//             }
-
-//             // ==========================
-//             // NO SMS YET
-//             // ==========================
-//             else {
-
-//                 if (data.status) {
-//                     const status = data.status.toUpperCase();
-
-//                     switch (status) {
-//                         case "FINISHED":
-//                             order.status = "FINISHED";
-//                             break;
-
-//                         case "CANCELLED":
-//                             order.status = "CANCELLED";
-//                             break;
-
-//                         case "TIMEOUT":
-//                         case "EXPIRED":
-//                             order.status = "EXPIRED";
-//                             break;
-
-//                         default:
-//                             order.status = "PENDING";
-//                     }
-//                 }
-
-//                 if (data.expires) {
-//                     order.expires = new Date(data.expires);
-//                 }
-//             }
-
-//             await order.save();
-
-//         } catch (err) {
-
-//             console.error(
-//                 "5SIM sync failed:",
-//                 err.response?.data || err.message
-//             );
-
-//             // Continue returning MongoDB data
-//         }
-
-//         return res.status(200).json({
-//             success: true,
-//             order,
-//             sms: order.sms || [],
-//         });
-
-//     } catch (error) {
-
-//         console.error(error);
-
-//         return res.status(500).json({
-//             success: false,
-//             message: "Unable to fetch active order.",
-//         });
-//     }
-// };
-
-// exports.getActiveOrders = async (req, res) => {
-//     try {
-//         const userId = req.user.id;
-
-//         const user = await User.findById(userId);
-
-//         const order = await NumberOrder.findOne({
-//             user: userId,
-//             status: {
-//                 $nin: ["FINISHED", "CANCELLED", "EXPIRED"],
-//             },
-//         }).sort({ createdAt: -1 });
-
-//         if (!order) {
-//             return res.status(200).json({
-//                 success: true,
-//                 order: null,
-//                 sms: [],
-//                 wallet: user?.wallet ?? 0,
-//             });
-//         }
-
-//         try {
-
-//             const response = await fiveSim.get(
-//                 `/user/check/${order.orderId}`
-//             );
-
-//             const data = response.data;
-
-//             const smsList = Array.isArray(data.sms)
-//                 ? data.sms.map((sms) => ({
-//                       code: sms.code || "",
-//                       text: sms.text || "",
-//                       sender: sms.sender || "",
-//                       createdAt: sms.created_at
-//                           ? new Date(sms.created_at)
-//                           : new Date(),
-//                   }))
-//                 : [];
-
-//             order.sms = smsList;
-
-//             /*
-//             ==========================
-//             SMS RECEIVED
-//             ==========================
-//             */
-
-//             if (smsList.length > 0) {
-
-//                 order.status = "RECEIVED";
-//                 order.expires = null;
-
-//             } else {
-
-//                 if (data.expires) {
-//                     order.expires = new Date(data.expires);
-//                 }
-
-//                 if (data.status) {
-
-//                     switch (data.status.toUpperCase()) {
-
-//                         case "FINISHED":
-//                             order.status = "FINISHED";
-//                             break;
-
-//                         case "CANCELLED":
-//                             order.status = "CANCELLED";
-//                             break;
-
-//                         case "TIMEOUT":
-//                         case "EXPIRED":
-
-//                             order.status = "EXPIRED";
-
-//                             if (!order.refunded) {
-
-//                                 const session = await mongoose.startSession();
-
-//                                 try {
-
-//                                     session.startTransaction();
-
-//                                     const walletUser = await User.findById(order.user)
-//                                         .session(session);
-
-//                                     walletUser.wallet += order.price;
-
-//                                     await walletUser.save({ session });
-
-//                                     await Transaction.create(
-//                                         [{
-//                                             user: walletUser._id,
-//                                             reference: generateReference(),
-//                                             amount: order.price,
-//                                             currency: "NGN",
-//                                             provider: "SYSTEM",
-//                                             type: "REFUND",
-//                                             status: "SUCCESS",
-//                                             gatewayTransactionId: String(order.orderId),
-//                                             paymentMethod: "Wallet",
-//                                             description: `Refund for expired ${order.service} number`,
-//                                         }],
-//                                         { session }
-//                                     );
-
-//                                     order.phone = null;
-//                                     order.sms = [];
-//                                     order.expires = null;
-//                                     order.refunded = true;
-
-//                                     await order.save({ session });
-
-//                                     await session.commitTransaction();
-
-//                                     user.wallet = walletUser.wallet;
-
-//                                 } catch (err) {
-
-//                                     await session.abortTransaction();
-//                                     console.error(err);
-
-//                                 } finally {
-
-//                                     session.endSession();
-
-//                                 }
-//                             }
-
-//                             break;
-
-//                         default:
-//                             order.status = "PENDING";
-//                     }
-//                 }
-//             }
-
-//             await order.save();
-
-//         } catch (err) {
-
-//             console.error(
-//                 "5SIM sync failed:",
-//                 err.response?.data || err.message
-//             );
-//         }
-
-//         if (
-//             ["EXPIRED", "FINISHED", "CANCELLED"].includes(order.status)
-//         ) {
-//             return res.status(200).json({
-//                 success: true,
-//                 order: null,
-//                 sms: [],
-//                 wallet: user.wallet,
-//             });
-//         }
-
-//         return res.status(200).json({
-//             success: true,
-//             order,
-//             sms: order.sms || [],
-//             wallet: user.wallet,
-//         });
-
-//     } catch (error) {
-
-//         console.error(error);
-
-//         return res.status(500).json({
-//             success: false,
-//             message: "Unable to fetch active order.",
-//         });
-
-//     }
-// };
 
 exports.getActiveOrders = async (req, res) => {
     try {
@@ -1396,218 +1097,6 @@ SYNC ACTIVE ORDERS
 =====================================================
 */
 
-// exports.syncOrders = async () => {
-//     try {
-
-//         const orders = await NumberOrder.find({
-//             status: "PENDING"
-//         });
-
-//         for (const order of orders) {
-
-//             try {
-
-//                 const response = await fiveSim.get(
-//                     `/user/check/${order.orderId}`
-//                 );
-
-//                 const data = response.data;
-
-//                 const smsList = Array.isArray(data.sms)
-//                     ? data.sms.map((sms) => ({
-//                           code: sms.code || "",
-//                           text: sms.text || "",
-//                           sender: sms.sender || "",
-//                           createdAt: sms.created_at
-//                               ? new Date(sms.created_at)
-//                               : new Date(),
-//                       }))
-//                     : [];
-
-//                 /*
-//                 ========================================
-//                 SMS RECEIVED
-//                 ========================================
-//                 */
-
-//                 if (smsList.length > 0) {
-
-//                     order.sms = smsList;
-//                     order.status = "RECEIVED";
-//                     order.expires = null;
-
-//                     await order.save();
-
-//                     continue;
-//                 }
-
-//                 /*
-//                 ========================================
-//                 UPDATE EXPIRY
-//                 ========================================
-//                 */
-
-//                 if (data.expires) {
-//                     order.expires = new Date(data.expires);
-//                 }
-
-//                 if (!data.status) {
-//                     await order.save();
-//                     continue;
-//                 }
-
-//                 const status = data.status.toUpperCase();
-
-//                 switch (status) {
-
-//                     /*
-//                     ========================================
-//                     STILL WAITING FOR OTP
-//                     ========================================
-//                     */
-
-//                     case "PENDING":
-//                     case "RECEIVED":
-//                         // 5SIM may return RECEIVED before any SMS arrives.
-//                         // Keep the order pending until smsList has messages.
-//                         order.status = "PENDING";
-//                         await order.save();
-//                         break;
-
-//                     /*
-//                     ========================================
-//                     ORDER FINISHED
-//                     ========================================
-//                     */
-
-//                     case "FINISHED":
-//                         order.status = "FINISHED";
-//                         await order.save();
-//                         break;
-
-//                     /*
-//                     ========================================
-//                     ORDER CANCELLED
-//                     ========================================
-//                     */
-
-//                     case "CANCELLED":
-//                         order.status = "CANCELLED";
-//                         await order.save();
-//                         break;
-
-//                     /*
-//                     ========================================
-//                     ORDER EXPIRED
-//                     ========================================
-//                     */
-
-//                     case "TIMEOUT":
-//                     case "EXPIRED": {
-
-//                         if (order.refunded) {
-
-//                             order.status = "EXPIRED";
-//                             await order.save();
-
-//                             continue;
-//                         }
-
-//                         const session = await mongoose.startSession();
-
-//                         try {
-
-//                             session.startTransaction();
-
-//                             const user = await User.findById(order.user)
-//                                 .session(session);
-
-//                             if (!user) {
-//                                 throw new Error("User not found.");
-//                             }
-
-//                             // Refund wallet
-//                             user.wallet += order.price;
-
-//                             await user.save({ session });
-
-//                             // Create refund transaction
-//                             await Transaction.create(
-//                                 [{
-//                                     user: user._id,
-//                                     reference: generateReference(),
-//                                     amount: order.price,
-//                                     currency: "NGN",
-//                                     provider: "SYSTEM",
-//                                     type: "REFUND",
-//                                     status: "SUCCESS",
-//                                     gatewayTransactionId: String(order.orderId),
-//                                     paymentMethod: "Wallet",
-//                                     description: `Refund for expired ${order.service} number`,
-//                                 }],
-//                                 { session }
-//                             );
-
-//                             // Update expired order
-//                             await NumberOrder.updateOne(
-//                                 { _id: order._id },
-//                                 {
-//                                     $set: {
-//                                         status: "EXPIRED",
-//                                         refunded: true,
-//                                         phone: null,
-//                                         sms: [],
-//                                         expires: null,
-//                                     },
-//                                 },
-//                                 { session }
-//                             );
-
-//                             await session.commitTransaction();
-
-//                         } catch (err) {
-
-//                             await session.abortTransaction();
-
-//                             console.error(
-//                                 `Refund failed for ${order.orderId}:`,
-//                                 err.message
-//                             );
-
-//                         } finally {
-
-//                             session.endSession();
-
-//                         }
-
-//                         continue;
-//                     }
-
-//                     default:
-//                         break;
-//                 }
-
-//             } catch (err) {
-
-//                 console.error(
-//                     `Unable to sync order ${order.orderId}:`,
-//                     err.response?.data || err.message
-//                 );
-
-//                 continue;
-//             }
-//         }
-
-//     } catch (err) {
-
-//         console.error(
-//             "syncOrders:",
-//             err.response?.data || err.message
-//         );
-
-//     }
-// };
-
 exports.syncOrders = async () => {
 
     try {
@@ -1652,32 +1141,15 @@ exports.syncOrders = async () => {
                     }))
                     : [];
 
-
-
                 /*
-                ========================================
-                SMS RECEIVED
-                ========================================
-                */
+========================================
+UPDATE SMS
+========================================
+*/
 
-                // if (smsList.length > 0) {
-
-
-                //     order.sms = smsList;
-
-                //     order.status = "RECEIVED";
-
-                //     order.expires = null;
-
-
-                //     await order.save();
-
-
-                //     continue;
-
-                // }
-
-
+                if (smsList.length > 0) {
+                    order.sms = smsList;
+                }
 
                 /*
                 ========================================
@@ -1685,66 +1157,28 @@ exports.syncOrders = async () => {
                 ========================================
                 */
 
-                // if (data.expires) {
+                order.expires = data.expires
+                    ? new Date(data.expires)
+                    : null;
 
-                //     order.expires = new Date(data.expires);
+                if (!data.status) {
 
-                // }
+                    await order.save();
 
+                    continue;
 
+                }
 
-                // if (!data.status) {
+                const status = String(data.status).toUpperCase();
 
-                //     await order.save();
+                console.log(
+                    "5SIM SYNC:",
+                    order.orderId,
+                    status,
+                    `SMS: ${smsList.length}`
+                );
 
-                //     continue;
-
-                // }
-
-
-
-                // const status = data.status.toUpperCase();
-
-
-
-                /*
-========================================
-UPDATE SMS
-========================================
-*/
-
-if (smsList.length > 0) {
-    order.sms = smsList;
-}
-
-/*
-========================================
-UPDATE EXPIRY TIME
-========================================
-*/
-
-order.expires = data.expires
-    ? new Date(data.expires)
-    : null;
-
-if (!data.status) {
-
-    await order.save();
-
-    continue;
-
-}
-
-const status = String(data.status).toUpperCase();
-
-console.log(
-    "5SIM SYNC:",
-    order.orderId,
-    status,
-    `SMS: ${smsList.length}`
-);
-
-                switch(status) {
+                switch (status) {
 
 
                     /*
@@ -1753,40 +1187,34 @@ console.log(
                     ========================================
                     */
 
-                    
-               case "PENDING":
 
-case "WAITING":
+                    case "PENDING":
 
-                         if (order.status !== "RECEIVED") {
-            order.status = "PENDING";
-        }
+                    case "WAITING":
 
-        await order.save();
+                        if (order.status !== "RECEIVED") {
+                            order.status = "PENDING";
+                        }
 
-        break;
+                        await order.save();
 
-    // order.status = "PENDING";
+                        break;
 
-    // await order.save();
+                    /*
+                       ========================================
+                       SMS RECEIVED
+                       ========================================
+                       */
 
-    // break;
+                    case "RECEIVED":
 
- /*
-    ========================================
-    SMS RECEIVED
-    ========================================
-    */
+                        // Only mark as received if 5SIM actually returned an SMS
+                        if (smsList.length > 0) {
+                            order.status = "RECEIVED";
+                            await order.save();
+                        }
 
-    case "RECEIVED":
-
-        // Only mark as received if 5SIM actually returned an SMS
-        if (smsList.length > 0) {
-            order.status = "RECEIVED";
-            await order.save();
-        }
-
-        break;
+                        break;
 
 
                     /*
@@ -1897,16 +1325,16 @@ case "WAITING":
                                     _id: order._id
                                 },
                                 {
-                                    $set:{
-                                        status:"CANCELLED",
+                                    $set: {
+                                        status: "CANCELLED",
 
-                                        refunded:true,
+                                        refunded: true,
 
-                                        phone:null,
+                                        phone: null,
 
-                                        sms:[],
+                                        sms: [],
 
-                                        expires:null
+                                        expires: null
                                     }
                                 },
                                 {
@@ -1920,7 +1348,7 @@ case "WAITING":
 
 
 
-                        } catch(err) {
+                        } catch (err) {
 
 
                             await session.abortTransaction();
@@ -1957,25 +1385,14 @@ case "WAITING":
                     ========================================
                     */
 
-                    // case "FINISHED":
+                    case "FINISHED":
 
+                        order.status = "FINISHED";
+                        order.expires = null;
 
-                    //     order.status = "FINISHED";
+                        await order.save();
 
-
-                    //     await order.save();
-
-
-                    //     break;
-
-                        case "FINISHED":
-
-    order.status = "FINISHED";
-    order.expires = null;
-
-    await order.save();
-
-    break;
+                        break;
 
 
                     /*
@@ -2048,24 +1465,24 @@ case "WAITING":
                                 [
                                     {
 
-                                        user:user._id,
+                                        user: user._id,
 
-                                        reference:generateReference(),
+                                        reference: generateReference(),
 
-                                        amount:order.price,
+                                        amount: order.price,
 
-                                        currency:"NGN",
+                                        currency: "NGN",
 
-                                        provider:"SYSTEM",
+                                        provider: "SYSTEM",
 
-                                        type:"REFUND",
+                                        type: "REFUND",
 
-                                        status:"SUCCESS",
+                                        status: "SUCCESS",
 
                                         gatewayTransactionId:
                                             String(order.orderId),
 
-                                        paymentMethod:"Wallet",
+                                        paymentMethod: "Wallet",
 
                                         description:
                                             `Refund for expired ${order.service} number`
@@ -2082,19 +1499,19 @@ case "WAITING":
 
                             await NumberOrder.updateOne(
                                 {
-                                    _id:order._id
+                                    _id: order._id
                                 },
                                 {
-                                    $set:{
-                                        status:"EXPIRED",
+                                    $set: {
+                                        status: "EXPIRED",
 
-                                        refunded:true,
+                                        refunded: true,
 
-                                        phone:null,
+                                        phone: null,
 
-                                        sms:[],
+                                        sms: [],
 
-                                        expires:null
+                                        expires: null
                                     }
                                 },
                                 {
@@ -2109,7 +1526,7 @@ case "WAITING":
 
 
 
-                        } catch(err) {
+                        } catch (err) {
 
 
                             await session.abortTransaction();
@@ -2154,7 +1571,7 @@ case "WAITING":
 
 
 
-            } catch(err) {
+            } catch (err) {
 
 
                 console.error(
@@ -2169,7 +1586,7 @@ case "WAITING":
 
 
 
-    } catch(err) {
+    } catch (err) {
 
 
         console.error(
