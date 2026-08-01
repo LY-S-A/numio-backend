@@ -72,6 +72,6 @@ const clearCache = () => {
 };
 
 module.exports = {
-    getRate,
+    getExchangeRate,
     clearCache,
 };
