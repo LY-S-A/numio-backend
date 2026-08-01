@@ -1,24 +1,149 @@
+// const { getPricingRule } = require("./pricingResolver");
+// const { selectOperator } = require("./operatorSelector");
+// const { getExchangeRate } = require("./exchangeRateService");
+// const calculateSellingPrice = require("../../helpers/calculateSellingPrice");
+
+// const pricingEngine = async ({
+//     country,
+//     service,
+//     operators,
+// }) => {
+
+//     /*
+//     ==========================
+//     STEP 1
+//     SELECT OPERATOR
+//     ==========================
+//     */
+
+//     const operatorResult = selectOperator(
+//         operators,
+
+//         {
+//             percentageThreshold: Number(
+//                 process.env.PRICE_VARIANCE_THRESHOLD || 1
+//             ),
+
+//             absoluteThreshold: Number(
+//                 process.env.MIN_PRICE_DIFFERENCE || 2
+//             ),
+//         }
+//     );
+
+//     /*
+//     ==========================
+//     STEP 2
+//     GET PRICING RULE
+//     ==========================
+//     */
+
+//     const pricingRule =
+//         await getPricingRule({
+
+//             country,
+
+//             service,
+
+//             usdPrice:
+//                 operatorResult.selected.usdPrice,
+
+//         });
+
+//     /*
+//     ==========================
+//     STEP 3
+//     GET EXCHANGE RATE
+//     ==========================
+//     */
+
+//     const exchangeRate =
+//         await getExchangeRate();
+
+//     /*
+//     ==========================
+//     STEP 4
+//     CALCULATE PRICE
+//     ==========================
+//     */
+
+//     const calculation =
+//         calculateSellingPrice({
+
+//             usdPrice:
+//                 operatorResult.selected.usdPrice,
+
+//             exchangeRate,
+
+//             strategy:
+//                 pricingRule.strategy,
+
+//             value:
+//                 pricingRule.value,
+
+//         });
+
+//     /*
+//     ==========================
+//     FINAL RESULT
+//     ==========================
+//     */
+
+//     return {
+
+//         operator:
+//             operatorResult.selected.operator,
+
+//         quantity:
+//             operatorResult.selected.quantity,
+
+//         usdPrice:
+//             operatorResult.selected.usdPrice,
+
+//         ngnPrice:
+//             calculation.sellingPrice,
+
+//         baseCost:
+//             calculation.baseCost,
+
+//         profit:
+//             calculation.profit,
+
+//         exchangeRate,
+
+//         pricingRule,
+
+//         calculation,
+
+//         operatorResult,
+
+//     };
+
+// };
+
+// module.exports = pricingEngine;
+
 const { getPricingRule } = require("./pricingResolver");
 const { selectOperator } = require("./operatorSelector");
-const { getExchangeRate } = require("./exchangeRateService");
+const { getRate } = require("./exchangeRateService");
+
 const calculateSellingPrice = require("../../helpers/calculateSellingPrice");
 
 const pricingEngine = async ({
     country,
     service,
     operators,
+    exchangeRate,
+    rules,
 }) => {
 
     /*
     ==========================
-    STEP 1
     SELECT OPERATOR
     ==========================
     */
 
     const operatorResult = selectOperator(
         operators,
-
         {
             percentageThreshold: Number(
                 process.env.PRICE_VARIANCE_THRESHOLD || 1
@@ -32,37 +157,36 @@ const pricingEngine = async ({
 
     /*
     ==========================
-    STEP 2
     GET PRICING RULE
     ==========================
     */
 
-    const pricingRule =
-        await getPricingRule({
+    const pricingRule = getPricingRule({
 
-            country,
+        country,
 
-            service,
+        service,
 
-            usdPrice:
-                operatorResult.selected.usdPrice,
+        usdPrice:
+            operatorResult.selected.usdPrice,
 
-        });
+        rules,
+
+    });
 
     /*
     ==========================
-    STEP 3
-    GET EXCHANGE RATE
+    EXCHANGE RATE
     ==========================
     */
 
-    const exchangeRate =
-        await getExchangeRate();
+    const rate =
+        exchangeRate ??
+        await getRate();
 
     /*
     ==========================
-    STEP 4
-    CALCULATE PRICE
+    PRICE
     ==========================
     */
 
@@ -72,7 +196,7 @@ const pricingEngine = async ({
             usdPrice:
                 operatorResult.selected.usdPrice,
 
-            exchangeRate,
+            exchangeRate: rate,
 
             strategy:
                 pricingRule.strategy,
@@ -84,7 +208,7 @@ const pricingEngine = async ({
 
     /*
     ==========================
-    FINAL RESULT
+    RESULT
     ==========================
     */
 
@@ -108,7 +232,7 @@ const pricingEngine = async ({
         profit:
             calculation.profit,
 
-        exchangeRate,
+        exchangeRate: rate,
 
         pricingRule,
 
