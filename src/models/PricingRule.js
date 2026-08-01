@@ -68,6 +68,21 @@ const PricingRuleSchema = new mongoose.Schema(
     }
 );
 
+PricingRuleSchema.index({
+    country: 1,
+    service: 1,
+    enabled: 1,
+});
+
+PricingRuleSchema.index({
+    type: 1,
+    enabled: 1,
+});
+
+PricingRuleSchema.index({
+    priority: -1,
+});
+
 module.exports = mongoose.model(
     "PricingRule",
     PricingRuleSchema
