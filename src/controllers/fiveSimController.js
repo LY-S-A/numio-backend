@@ -1335,9 +1335,9 @@ UPDATE SMS
 
                                         refunded: true,
 
-                                        phone: null,
+                                        // phone: null,
 
-                                        sms: [],
+                                        // sms: [],
 
                                         expires: null
                                     }
@@ -1512,9 +1512,9 @@ UPDATE SMS
 
                                         refunded: true,
 
-                                        phone: null,
+                                        // phone: null,
 
-                                        sms: [],
+                                        // sms: [],
 
                                         expires: null
                                     }
