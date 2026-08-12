@@ -5,7 +5,7 @@ const User = require("../models/User");
 const Transaction = require("../models/Transaction");
 const NumberOrder = require("../models/NumberOrder");
 
-const sendEmail = require("../services/sendEmail");
+const sendEmail = require("../utils/sendEmail");
 
 /*
 ========================================
