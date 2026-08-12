@@ -71,7 +71,6 @@
 // };
 
 const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs");
 
 const User = require("../models/User");
 const Transaction = require("../models/Transaction");
@@ -95,43 +94,38 @@ exports.adminLogin = async (req, res) => {
             });
         }
 
-        // Find user
-        const user = await User.findOne({
-            email: email.toLowerCase().trim(),
-        });
+        // Get admin credentials from environment
+        const adminEmail = process.env.ADMIN_EMAIL;
+        const adminPassword = process.env.ADMIN_PASSWORD;
 
-        if (!user) {
-            return res.status(401).json({
+        if (!adminEmail || !adminPassword) {
+            console.error(
+                "ADMIN_EMAIL or ADMIN_PASSWORD is not configured"
+            );
+
+            return res.status(500).json({
                 success: false,
-                message: "Invalid email or password",
+                message: "Admin credentials are not configured",
             });
         }
 
-        // Check admin role
-        if (user.role !== "admin") {
-            return res.status(403).json({
-                success: false,
-                message: "Admin access denied",
-            });
-        }
-
-        // Check password
-        const isPasswordValid = await bcrypt.compare(
-            password,
-            user.password
-        );
-
-        if (!isPasswordValid) {
+        // Check admin credentials
+        if (
+            email.toLowerCase().trim() !==
+                adminEmail.toLowerCase().trim() ||
+            password !== adminPassword
+        ) {
             return res.status(401).json({
                 success: false,
-                message: "Invalid email or password",
+                message: "Invalid admin email or password",
             });
         }
 
         // Create JWT
         const token = jwt.sign(
             {
-                id: user._id,
+                email: adminEmail,
+                role: "admin",
             },
             process.env.JWT_SECRET,
             {
@@ -140,17 +134,15 @@ exports.adminLogin = async (req, res) => {
         );
 
         // Return admin information
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             message: "Admin login successful",
 
             token,
 
             user: {
-                id: user._id,
-                username: user.username,
-                email: user.email,
-                role: user.role,
+                email: adminEmail,
+                role: "admin",
             },
         });
 
@@ -160,7 +152,7 @@ exports.adminLogin = async (req, res) => {
             error
         );
 
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: "Server error during admin login",
         });
@@ -191,7 +183,7 @@ exports.getDashboardStats = async (req, res) => {
             // Total transactions
             Transaction.countDocuments(),
 
-            // Total successful revenue
+            // Total successful purchase revenue
             Transaction.aggregate([
                 {
                     $match: {
@@ -215,7 +207,7 @@ exports.getDashboardStats = async (req, res) => {
                 ? revenueResult[0].total
                 : 0;
 
-        res.json({
+        return res.status(200).json({
             success: true,
 
             stats: {
@@ -232,7 +224,7 @@ exports.getDashboardStats = async (req, res) => {
             error
         );
 
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: "Failed to fetch dashboard statistics",
         });
