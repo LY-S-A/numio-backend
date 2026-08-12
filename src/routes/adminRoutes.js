@@ -5,7 +5,7 @@ const {
     getDashboardStats,
 } = require("../controllers/adminController");
 
-const { protect, adminOnly } = require("../middleware/authMiddleware");
+const { protect, adminOnly } = require("../middleware/adminAuthMiddleware");
 
 router.get(
     "/dashboard/stats",
