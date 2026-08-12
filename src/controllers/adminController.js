@@ -481,7 +481,7 @@ exports.sendMailToUsers = async (req, res) => {
 
         /*
         ================================
-        GET USERS
+        GET ALL USERS
         ================================
         */
 
@@ -517,11 +517,17 @@ exports.sendMailToUsers = async (req, res) => {
         ================================
         */
 
-        const emails = users
-            .map((user) =>
-                user.email?.trim().toLowerCase()
-            )
-            .filter(Boolean);
+        const emails = [
+            ...new Set(
+                users
+                    .map((user) =>
+                        user.email
+                            ?.trim()
+                            .toLowerCase()
+                    )
+                    .filter(Boolean)
+            ),
+        ];
 
         if (!emails.length) {
             return res.status(404).json({
@@ -622,7 +628,7 @@ exports.sendMailToUsers = async (req, res) => {
 
                 console.error(
                     `Failed to send email to ${email}:`,
-                    error.message
+                    error?.message || error
                 );
             }
         }
@@ -637,7 +643,9 @@ exports.sendMailToUsers = async (req, res) => {
             success: true,
 
             message:
-                "Email sending completed",
+                failed === 0
+                    ? "Email sent successfully to all users."
+                    : "Email sending completed with some failures.",
 
             totalRecipients:
                 emails.length,
