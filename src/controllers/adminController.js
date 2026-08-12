@@ -87,6 +87,71 @@ exports.adminLogin = async (req, res) => {
 };
 
 
+// /*
+// ========================================
+// GET ADMIN DASHBOARD STATS
+// ========================================
+// */
+// exports.getDashboardStats = async (req, res) => {
+//     try {
+//         const [
+//             totalUsers,
+//             totalOrders,
+//             totalTransactions,
+//             revenueResult,
+//         ] = await Promise.all([
+//             User.countDocuments(),
+
+//             NumberOrder.countDocuments(),
+
+//             Transaction.countDocuments(),
+
+//             Transaction.aggregate([
+//                 {
+//                     $match: {
+//                         status: "SUCCESS",
+//                         type: "PURCHASE",
+//                     },
+//                 },
+//                 {
+//                     $group: {
+//                         _id: null,
+//                         total: {
+//                             $sum: "$amount",
+//                         },
+//                     },
+//                 },
+//             ]),
+//         ]);
+
+//         const totalRevenue =
+//             revenueResult.length > 0
+//                 ? revenueResult[0].total
+//                 : 0;
+
+//         return res.status(200).json({
+//             success: true,
+//             stats: {
+//                 totalUsers,
+//                 totalOrders,
+//                 totalTransactions,
+//                 totalRevenue,
+//             },
+//         });
+
+//     } catch (error) {
+//         console.error(
+//             "Admin dashboard stats error:",
+//             error
+//         );
+
+//         return res.status(500).json({
+//             success: false,
+//             message: "Failed to fetch dashboard statistics",
+//         });
+//     }
+// };
+
 /*
 ========================================
 GET ADMIN DASHBOARD STATS
@@ -94,12 +159,59 @@ GET ADMIN DASHBOARD STATS
 */
 exports.getDashboardStats = async (req, res) => {
     try {
+        const now = new Date();
+
+        // Start of current week - Monday
+        const currentWeekStart = new Date(now);
+        currentWeekStart.setHours(0, 0, 0, 0);
+
+        const day = currentWeekStart.getDay();
+        const diff = day === 0 ? 6 : day - 1;
+
+        currentWeekStart.setDate(
+            currentWeekStart.getDate() - diff
+        );
+
+        // Start of previous week
+        const previousWeekStart = new Date(
+            currentWeekStart
+        );
+
+        previousWeekStart.setDate(
+            previousWeekStart.getDate() - 7
+        );
+
+        /*
+        ========================================
+        END OF CURRENT WEEK
+        ========================================
+        */
+
         const [
             totalUsers,
             totalOrders,
             totalTransactions,
             revenueResult,
+
+            currentUsers,
+            previousUsers,
+
+            currentOrders,
+            previousOrders,
+
+            currentTransactions,
+            previousTransactions,
+
+            currentRevenueResult,
+            previousRevenueResult,
         ] = await Promise.all([
+
+            /*
+            ================================
+            TOTALS
+            ================================
+            */
+
             User.countDocuments(),
 
             NumberOrder.countDocuments(),
@@ -122,20 +234,233 @@ exports.getDashboardStats = async (req, res) => {
                     },
                 },
             ]),
+
+            /*
+            ================================
+            USERS - CURRENT WEEK
+            ================================
+            */
+
+            User.countDocuments({
+                createdAt: {
+                    $gte: currentWeekStart,
+                },
+            }),
+
+            /*
+            ================================
+            USERS - PREVIOUS WEEK
+            ================================
+            */
+
+            User.countDocuments({
+                createdAt: {
+                    $gte: previousWeekStart,
+                    $lt: currentWeekStart,
+                },
+            }),
+
+            /*
+            ================================
+            ORDERS - CURRENT WEEK
+            ================================
+            */
+
+            NumberOrder.countDocuments({
+                createdAt: {
+                    $gte: currentWeekStart,
+                },
+            }),
+
+            /*
+            ================================
+            ORDERS - PREVIOUS WEEK
+            ================================
+            */
+
+            NumberOrder.countDocuments({
+                createdAt: {
+                    $gte: previousWeekStart,
+                    $lt: currentWeekStart,
+                },
+            }),
+
+            /*
+            ================================
+            TRANSACTIONS - CURRENT WEEK
+            ================================
+            */
+
+            Transaction.countDocuments({
+                createdAt: {
+                    $gte: currentWeekStart,
+                },
+            }),
+
+            /*
+            ================================
+            TRANSACTIONS - PREVIOUS WEEK
+            ================================
+            */
+
+            Transaction.countDocuments({
+                createdAt: {
+                    $gte: previousWeekStart,
+                    $lt: currentWeekStart,
+                },
+            }),
+
+            /*
+            ================================
+            REVENUE - CURRENT WEEK
+            ================================
+            */
+
+            Transaction.aggregate([
+                {
+                    $match: {
+                        status: "SUCCESS",
+                        type: "PURCHASE",
+                        createdAt: {
+                            $gte: currentWeekStart,
+                        },
+                    },
+                },
+                {
+                    $group: {
+                        _id: null,
+                        total: {
+                            $sum: "$amount",
+                        },
+                    },
+                },
+            ]),
+
+            /*
+            ================================
+            REVENUE - PREVIOUS WEEK
+            ================================
+            */
+
+            Transaction.aggregate([
+                {
+                    $match: {
+                        status: "SUCCESS",
+                        type: "PURCHASE",
+                        createdAt: {
+                            $gte: previousWeekStart,
+                            $lt: currentWeekStart,
+                        },
+                    },
+                },
+                {
+                    $group: {
+                        _id: null,
+                        total: {
+                            $sum: "$amount",
+                        },
+                    },
+                },
+            ]),
         ]);
+
+        /*
+        ========================================
+        EXTRACT REVENUE
+        ========================================
+        */
 
         const totalRevenue =
             revenueResult.length > 0
                 ? revenueResult[0].total
                 : 0;
 
+        const currentRevenue =
+            currentRevenueResult.length > 0
+                ? currentRevenueResult[0].total
+                : 0;
+
+        const previousRevenue =
+            previousRevenueResult.length > 0
+                ? previousRevenueResult[0].total
+                : 0;
+
+        /*
+        ========================================
+        CALCULATE PERCENTAGE
+        ========================================
+        */
+
+        const calculatePercentage = (
+            current,
+            previous
+        ) => {
+            if (previous === 0) {
+                if (current === 0) {
+                    return 0;
+                }
+
+                return 100;
+            }
+
+            return Number(
+                (
+                    ((current - previous) /
+                        previous) *
+                    100
+                ).toFixed(1)
+            );
+        };
+
+        /*
+        ========================================
+        TRENDS
+        ========================================
+        */
+
+        const usersTrend = calculatePercentage(
+            currentUsers,
+            previousUsers
+        );
+
+        const ordersTrend = calculatePercentage(
+            currentOrders,
+            previousOrders
+        );
+
+        const transactionsTrend =
+            calculatePercentage(
+                currentTransactions,
+                previousTransactions
+            );
+
+        const revenueTrend =
+            calculatePercentage(
+                currentRevenue,
+                previousRevenue
+            );
+
+        /*
+        ========================================
+        RESPONSE
+        ========================================
+        */
+
         return res.status(200).json({
             success: true,
+
             stats: {
                 totalUsers,
                 totalOrders,
                 totalTransactions,
                 totalRevenue,
+
+                trends: {
+                    users: usersTrend,
+                    orders: ordersTrend,
+                    transactions: transactionsTrend,
+                    revenue: revenueTrend,
+                },
             },
         });
 
@@ -147,7 +472,8 @@ exports.getDashboardStats = async (req, res) => {
 
         return res.status(500).json({
             success: false,
-            message: "Failed to fetch dashboard statistics",
+            message:
+                "Failed to fetch dashboard statistics",
         });
     }
 };
