@@ -24,6 +24,7 @@ const allowedOrigins = [
   "http://localhost:3000",
   "https://numio-one.vercel.app",
   "https://www.numioverify.store",
+  "https://numio-admin.vercel.app",
 ];
 
 app.use(
