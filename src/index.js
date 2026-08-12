@@ -14,6 +14,8 @@ const paystackRoutes = require("./routes/paystackRoutes");
 const transactionRoutes = require("./routes/transactionRoutes");
 const fiveSimRoutes = require("./routes/fiveSimRoutes");
 
+const adminRoutes = require("./routes/adminRoutes");
+
 const seedPricingRulesIfEmpty = require("./seed/pricingRuleSeed");
 const seedExchangeRateIfEmpty = require("./seed/exchangeRateSeed");
 
@@ -67,6 +69,8 @@ app.use("/api/flutterwave", flutterwaveRoutes);
 app.use("/api/paystack", paystackRoutes);
 app.use("/api/transaction", transactionRoutes);
 app.use("/api/5sim", fiveSimRoutes);
+
+app.use("/api/admin", adminRoutes);
 
 
 // ================= 404 =================
