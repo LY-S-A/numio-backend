@@ -874,3 +874,126 @@ exports.deleteUser = async (req, res) => {
         });
     }
 };
+
+/*
+========================================
+GET USER COUNT
+========================================
+*/
+
+exports.getUserCount = async (req, res) => {
+    try {
+        const userCount = await User.countDocuments({
+            role: "user",
+        });
+
+        return res.status(200).json({
+            success: true,
+            count: userCount,
+        });
+
+    } catch (error) {
+        console.error(
+            "Get user count error:",
+            error
+        );
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch user count",
+        });
+    }
+};
+
+/*
+========================================
+SEND EMAIL TO ALL USERS
+========================================
+*/
+
+exports.sendMailToUsers = async (req, res) => {
+    try {
+        const {
+            subject,
+            message,
+        } = req.body;
+
+        if (!subject || !message) {
+            return res.status(400).json({
+                success: false,
+                message: "Subject and message are required",
+            });
+        }
+
+        const users = await User.find(
+            {
+                role: "user",
+            },
+            {
+                email: 1,
+            }
+        ).lean();
+
+        if (!users.length) {
+            return res.status(404).json({
+                success: false,
+                message: "No users found",
+            });
+        }
+
+        let sent = 0;
+        let failed = 0;
+
+        for (const user of users) {
+            try {
+                await sendEmail({
+                    to: user.email,
+                    subject,
+                    html: `
+                        <div style="
+                            font-family: Arial, sans-serif;
+                            max-width: 600px;
+                            margin: 0 auto;
+                            padding: 30px;
+                        ">
+                            ${message}
+                        </div>
+                    `,
+                });
+
+                sent++;
+
+            } catch (error) {
+                failed++;
+
+                console.error(
+                    `Failed to send email to ${user.email}:`,
+                    error.message
+                );
+            }
+        }
+
+        return res.status(200).json({
+            success: true,
+
+            message:
+                "Email campaign completed",
+
+            totalUsers: users.length,
+
+            sent,
+            failed,
+        });
+
+    } catch (error) {
+        console.error(
+            "Send mail to users error:",
+            error
+        );
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to send emails",
+        });
+    }
+};
