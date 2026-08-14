@@ -416,144 +416,6 @@ exports.getDashboardStats = async (req, res) => {
 
 /*
 ========================================
-GET ADMIN USERS
-========================================
-*/
-
-exports.getUsers = async (req, res) => {
-    try {
-        const {
-            search = "",
-            status = "all",
-            sort = "newest",
-        } = req.query;
-
-        /*
-        ========================================
-        BASE QUERY
-        ========================================
-        */
-
-        const query = {
-            role: "user",
-        };
-
-        /*
-        ========================================
-        SEARCH
-        ========================================
-        */
-
-        if (search.trim()) {
-            const searchRegex = new RegExp(
-                search.trim(),
-                "i"
-            );
-
-            query.$or = [
-                {
-                    username: searchRegex,
-                },
-                {
-                    email: searchRegex,
-                },
-            ];
-        }
-
-        /*
-        ========================================
-        STATUS
-        ========================================
-        */
-
-        if (status === "active") {
-            query.banned = {
-                $ne: true,
-            };
-        }
-
-        if (status === "banned") {
-            query.banned = true;
-        }
-
-        /*
-        ========================================
-        SORT
-        ========================================
-        */
-
-        let sortOption = {
-            createdAt: -1,
-        };
-
-        if (sort === "oldest") {
-            sortOption = {
-                createdAt: 1,
-            };
-        }
-
-        if (sort === "highest") {
-            sortOption = {
-                wallet: -1,
-            };
-        }
-
-        if (sort === "lowest") {
-            sortOption = {
-                wallet: 1,
-            };
-        }
-
-        /*
-        ========================================
-        GET USERS
-        ========================================
-        */
-
-        const users = await User.find(
-            query,
-            {
-                username: 1,
-                email: 1,
-                verified: 1,
-                wallet: 1,
-                role: 1,
-                banned: 1,
-                createdAt: 1,
-            }
-        )
-            .sort(sortOption)
-            .lean();
-
-        /*
-        ========================================
-        RESPONSE
-        ========================================
-        */
-
-        return res.status(200).json({
-            success: true,
-            users,
-            count: users.length,
-        });
-
-    } catch (error) {
-
-        console.error(
-            "Get admin users error:",
-            error
-        );
-
-        return res.status(500).json({
-            success: false,
-            message:
-                "Failed to fetch users",
-        });
-    }
-};
-
-/*
-========================================
 GET ADMIN USER STATS
 ========================================
 */
@@ -615,6 +477,285 @@ exports.getUserStats = async (req, res) => {
             success: false,
             message:
                 "Failed to fetch user statistics",
+        });
+    }
+};
+
+/*
+========================================
+GET ADMIN USERS
+========================================
+*/
+
+exports.getUsers = async (req, res) => {
+    try {
+        const {
+            search = "",
+            status = "all",
+            sort = "newest",
+            page = 1,
+            limit = 10,
+        } = req.query;
+
+        const pageNumber = Math.max(
+            Number(page) || 1,
+            1
+        );
+
+        const limitNumber = Math.max(
+            Number(limit) || 10,
+            1
+        );
+
+        const skip =
+            (pageNumber - 1) *
+            limitNumber;
+
+        /*
+        ========================================
+        USER QUERY
+        ========================================
+        */
+
+        const query = {
+            role: "user",
+        };
+
+        /*
+        SEARCH
+        */
+
+        if (search.trim()) {
+            const searchRegex = new RegExp(
+                search.trim(),
+                "i"
+            );
+
+            query.$or = [
+                {
+                    username: searchRegex,
+                },
+                {
+                    email: searchRegex,
+                },
+            ];
+        }
+
+        /*
+        STATUS
+        */
+
+        if (status === "active") {
+            query.banned = {
+                $ne: true,
+            };
+        }
+
+        if (status === "banned") {
+            query.banned = true;
+        }
+
+        /*
+        ========================================
+        SORT
+        ========================================
+        */
+
+        let sortOption = {
+            createdAt: -1,
+        };
+
+        if (sort === "oldest") {
+            sortOption = {
+                createdAt: 1,
+            };
+        }
+
+        if (sort === "highest") {
+            sortOption = {
+                wallet: -1,
+            };
+        }
+
+        if (sort === "lowest") {
+            sortOption = {
+                wallet: 1,
+            };
+        }
+
+        /*
+        ========================================
+        GET USERS + COUNT
+        ========================================
+        */
+
+        const [
+            users,
+            totalUsers,
+        ] = await Promise.all([
+
+            User.find(
+                query,
+                {
+                    username: 1,
+                    email: 1,
+                    wallet: 1,
+                    verified: 1,
+                    banned: 1,
+                    createdAt: 1,
+                }
+            )
+                .sort(sortOption)
+                .skip(skip)
+                .limit(limitNumber)
+                .lean(),
+
+            User.countDocuments(query),
+
+        ]);
+
+        /*
+        ========================================
+        GET TOTAL DEPOSITS
+        ========================================
+        */
+
+        const userIds =
+            users.map((user) => user._id);
+
+        const deposits =
+            await Transaction.aggregate([
+
+                {
+                    $match: {
+                        user: {
+                            $in: userIds,
+                        },
+
+                        type: "DEPOSIT",
+
+                        status: "SUCCESS",
+                    },
+                },
+
+                {
+                    $group: {
+                        _id: "$user",
+
+                        totalDeposit: {
+                            $sum: "$amount",
+                        },
+                    },
+                },
+
+            ]);
+
+        /*
+        ========================================
+        MAP DEPOSITS
+        ========================================
+        */
+
+        const depositMap = {};
+
+        deposits.forEach((item) => {
+
+            depositMap[
+                item._id.toString()
+            ] = item.totalDeposit;
+
+        });
+
+        /*
+        ========================================
+        FORMAT USERS
+        ========================================
+        */
+
+        const formattedUsers =
+            users.map((user) => ({
+
+                id: user._id,
+
+                username:
+                    user.username,
+
+                email:
+                    user.email,
+
+                balance:
+                    Number(user.wallet || 0),
+
+                totalDeposit:
+                    Number(
+                        depositMap[
+                            user._id.toString()
+                        ] || 0
+                    ),
+
+                banned:
+                    user.banned === true,
+
+                verified:
+                    user.verified === true,
+
+                joined:
+                    user.createdAt,
+
+            }));
+
+        /*
+        ========================================
+        PAGINATION
+        ========================================
+        */
+
+        const totalPages =
+            Math.ceil(
+                totalUsers /
+                limitNumber
+            );
+
+        /*
+        ========================================
+        RESPONSE
+        ========================================
+        */
+
+        return res.status(200).json({
+
+            success: true,
+
+            users: formattedUsers,
+
+            pagination: {
+                currentPage:
+                    pageNumber,
+
+                totalPages,
+
+                totalUsers,
+
+                limit:
+                    limitNumber,
+            },
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Get admin users error:",
+            error
+        );
+
+        return res.status(500).json({
+
+            success: false,
+
+            message:
+                "Failed to fetch users",
+
         });
     }
 };
