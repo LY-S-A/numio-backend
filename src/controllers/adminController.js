@@ -668,3 +668,126 @@ exports.sendMailToUsers = async (req, res) => {
         });
     }
 };
+
+/*
+========================================
+GET ADMIN USERS
+========================================
+*/
+
+exports.getUsers = async (req, res) => {
+    try {
+        const {
+            search = "",
+            status = "all",
+            sort = "newest",
+        } = req.query;
+
+        /*
+        ========================================
+        BUILD QUERY
+        ========================================
+        */
+
+        const query = {};
+
+        /*
+        SEARCH
+        */
+
+        if (search.trim()) {
+            const searchRegex = new RegExp(
+                search.trim(),
+                "i"
+            );
+
+            query.$or = [
+                { username: searchRegex },
+                { email: searchRegex },
+            ];
+        }
+
+        /*
+        STATUS
+        */
+
+        if (status === "active") {
+            query.banned = { $ne: true };
+        }
+
+        if (status === "banned") {
+            query.banned = true;
+        }
+
+        /*
+        ========================================
+        SORT
+        ========================================
+        */
+
+        let sortOption = {
+            createdAt: -1,
+        };
+
+        if (sort === "oldest") {
+            sortOption = {
+                createdAt: 1,
+            };
+        }
+
+        if (sort === "highest") {
+            sortOption = {
+                wallet: -1,
+            };
+        }
+
+        if (sort === "lowest") {
+            sortOption = {
+                wallet: 1,
+            };
+        }
+
+        /*
+        ========================================
+        GET USERS
+        ========================================
+        */
+
+        const users = await User.find(
+            query,
+            {
+                username: 1,
+                email: 1,
+                wallet: 1,
+                verified: 1,
+                banned: 1,
+                createdAt: 1,
+            }
+        )
+            .sort(sortOption)
+            .lean();
+
+        /*
+        ========================================
+        RESPONSE
+        ========================================
+        */
+
+        return res.status(200).json({
+            success: true,
+            users,
+            count: users.length,
+        });
+
+    } catch (error) {
+        console.error(
+            "Get admin users error:",
+            error
+        );
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch users",
+        });
+    }
+};
