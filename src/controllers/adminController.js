@@ -416,261 +416,6 @@ exports.getDashboardStats = async (req, res) => {
 
 /*
 ========================================
-GET ADMIN USER COUNT
-========================================
-*/
-
-exports.getUserCount = async (req, res) => {
-    try {
-        const userCount =
-            await User.countDocuments();
-
-        return res.status(200).json({
-            success: true,
-            userCount,
-        });
-
-    } catch (error) {
-        console.error(
-            "Get user count error:",
-            error
-        );
-
-        return res.status(500).json({
-            success: false,
-            message:
-                "Failed to fetch user count",
-        });
-    }
-};
-
-/*
-========================================
-SEND MAIL TO ALL USERS
-========================================
-*/
-
-exports.sendMailToUsers = async (req, res) => {
-    try {
-        const {
-            subject,
-            message,
-        } = req.body;
-
-        /*
-        ================================
-        VALIDATE
-        ================================
-        */
-
-        if (!subject?.trim()) {
-            return res.status(400).json({
-                success: false,
-                message:
-                    "Email subject is required",
-            });
-        }
-
-        if (!message?.trim()) {
-            return res.status(400).json({
-                success: false,
-                message:
-                    "Email message is required",
-            });
-        }
-
-        /*
-        ================================
-        GET ALL USERS
-        ================================
-        */
-
-        const users = await User.find(
-            {
-                email: {
-                    $exists: true,
-                    $ne: "",
-                },
-            },
-            {
-                email: 1,
-            }
-        ).lean();
-
-        /*
-        ================================
-        CHECK USERS
-        ================================
-        */
-
-        if (!users.length) {
-            return res.status(404).json({
-                success: false,
-                message:
-                    "No registered users found",
-            });
-        }
-
-        /*
-        ================================
-        GET VALID EMAILS
-        ================================
-        */
-
-        const emails = [
-            ...new Set(
-                users
-                    .map((user) =>
-                        user.email
-                            ?.trim()
-                            .toLowerCase()
-                    )
-                    .filter(Boolean)
-            ),
-        ];
-
-        if (!emails.length) {
-            return res.status(404).json({
-                success: false,
-                message:
-                    "No valid user email addresses found",
-            });
-        }
-
-        /*
-        ================================
-        ESCAPE HTML
-        ================================
-        */
-
-        const escapeHtml = (text) => {
-            return text
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        };
-
-        const safeSubject =
-            escapeHtml(subject.trim());
-
-        const safeMessage =
-            escapeHtml(message.trim());
-
-        /*
-        ================================
-        EMAIL HTML
-        ================================
-        */
-
-        const html = `
-            <div style="
-                font-family: Arial, sans-serif;
-                max-width: 650px;
-                margin: 0 auto;
-                padding: 30px;
-                color: #111827;
-                line-height: 1.7;
-            ">
-
-                <h2 style="
-                    margin: 0 0 20px;
-                    font-size: 24px;
-                ">
-                    ${safeSubject}
-                </h2>
-
-                <div style="
-                    font-size: 15px;
-                    white-space: pre-line;
-                ">
-                    ${safeMessage}
-                </div>
-
-                <div style="
-                    margin-top: 30px;
-                    padding-top: 20px;
-                    border-top: 1px solid #e5e7eb;
-                    color: #6b7280;
-                    font-size: 13px;
-                ">
-                    <p>
-                        This email was sent by
-                        the Numio Administration.
-                    </p>
-                </div>
-
-            </div>
-        `;
-
-        /*
-        ================================
-        SEND EMAILS
-        ================================
-        */
-
-        let sent = 0;
-        let failed = 0;
-
-        for (const email of emails) {
-            try {
-                await sendEmail({
-                    to: email,
-                    subject: subject.trim(),
-                    html,
-                });
-
-                sent++;
-
-            } catch (error) {
-                failed++;
-
-                console.error(
-                    `Failed to send email to ${email}:`,
-                    error?.message || error
-                );
-            }
-        }
-
-        /*
-        ================================
-        RESPONSE
-        ================================
-        */
-
-        return res.status(200).json({
-            success: true,
-
-            message:
-                failed === 0
-                    ? "Email sent successfully to all users."
-                    : "Email sending completed with some failures.",
-
-            totalRecipients:
-                emails.length,
-
-            sent,
-
-            failed,
-        });
-
-    } catch (error) {
-        console.error(
-            "Send mail error:",
-            error
-        );
-
-        return res.status(500).json({
-            success: false,
-            message:
-                "Failed to send emails",
-        });
-    }
-};
-
-/*
-========================================
 GET ADMIN USERS
 ========================================
 */
@@ -685,14 +430,18 @@ exports.getUsers = async (req, res) => {
 
         /*
         ========================================
-        BUILD QUERY
+        BASE QUERY
         ========================================
         */
 
-        const query = {};
+        const query = {
+            role: "user",
+        };
 
         /*
+        ========================================
         SEARCH
+        ========================================
         */
 
         if (search.trim()) {
@@ -702,17 +451,25 @@ exports.getUsers = async (req, res) => {
             );
 
             query.$or = [
-                { username: searchRegex },
-                { email: searchRegex },
+                {
+                    username: searchRegex,
+                },
+                {
+                    email: searchRegex,
+                },
             ];
         }
 
         /*
+        ========================================
         STATUS
+        ========================================
         */
 
         if (status === "active") {
-            query.banned = { $ne: true };
+            query.banned = {
+                $ne: true,
+            };
         }
 
         if (status === "banned") {
@@ -758,8 +515,9 @@ exports.getUsers = async (req, res) => {
             {
                 username: 1,
                 email: 1,
-                wallet: 1,
                 verified: 1,
+                wallet: 1,
+                role: 1,
                 banned: 1,
                 createdAt: 1,
             }
@@ -780,6 +538,7 @@ exports.getUsers = async (req, res) => {
         });
 
     } catch (error) {
+
         console.error(
             "Get admin users error:",
             error
@@ -787,7 +546,8 @@ exports.getUsers = async (req, res) => {
 
         return res.status(500).json({
             success: false,
-            message: "Failed to fetch users",
+            message:
+                "Failed to fetch users",
         });
     }
 };
