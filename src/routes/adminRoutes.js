@@ -78,13 +78,11 @@ const router = express.Router();
 const {
     adminLogin,
     getDashboardStats,
-
     getUserCount,
     getUserStats,
     getUsers,
     toggleUserBan,
     deleteUser,
-
     sendMailToUsers,
 } = require("../controllers/adminController");
 
