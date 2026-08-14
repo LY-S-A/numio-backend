@@ -69,7 +69,7 @@ router.post(
 );
 
 
-// // module.exports = router;
+module.exports = router;
 
 // const express = require("express");
 
