@@ -759,3 +759,118 @@ exports.getUsers = async (req, res) => {
         });
     }
 };
+
+
+/*
+========================================
+TOGGLE USER BAN
+========================================
+*/
+
+exports.toggleUserBan = async (req, res) => {
+    try {
+
+        const { userId } = req.params;
+
+        const user =
+            await User.findOne({
+                _id: userId,
+                role: "user",
+            });
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        user.banned =
+            !user.banned;
+
+        await user.save();
+
+        return res.status(200).json({
+
+            success: true,
+
+            message:
+                user.banned
+                    ? "User banned successfully"
+                    : "User unbanned successfully",
+
+            user: {
+                id: user._id,
+                banned: user.banned,
+            },
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Toggle user ban error:",
+            error
+        );
+
+        return res.status(500).json({
+
+            success: false,
+
+            message:
+                "Failed to update user status",
+
+        });
+    }
+};
+
+/*
+========================================
+DELETE USER
+========================================
+*/
+
+exports.deleteUser = async (req, res) => {
+    try {
+
+        const { userId } = req.params;
+
+        const user =
+            await User.findOneAndDelete({
+                _id: userId,
+                role: "user",
+            });
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        return res.status(200).json({
+
+            success: true,
+
+            message:
+                "User deleted successfully",
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Delete user error:",
+            error
+        );
+
+        return res.status(500).json({
+
+            success: false,
+
+            message:
+                "Failed to delete user",
+
+        });
+    }
+};
