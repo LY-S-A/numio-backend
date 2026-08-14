@@ -481,396 +481,396 @@ exports.getUserStats = async (req, res) => {
     }
 };
 
-/*
-========================================
-GET ADMIN USERS
-========================================
-*/
-
-exports.getUsers = async (req, res) => {
-    try {
-        const {
-            search = "",
-            status = "all",
-            sort = "newest",
-            page = 1,
-            limit = 10,
-        } = req.query;
-
-        const pageNumber = Math.max(
-            Number(page) || 1,
-            1
-        );
-
-        const limitNumber = Math.max(
-            Number(limit) || 10,
-            1
-        );
-
-        const skip =
-            (pageNumber - 1) *
-            limitNumber;
-
-        /*
-        ========================================
-        USER QUERY
-        ========================================
-        */
-
-        const query = {
-            role: "user",
-        };
-
-        /*
-        SEARCH
-        */
-
-        if (search.trim()) {
-            const searchRegex = new RegExp(
-                search.trim(),
-                "i"
-            );
-
-            query.$or = [
-                {
-                    username: searchRegex,
-                },
-                {
-                    email: searchRegex,
-                },
-            ];
-        }
-
-        /*
-        STATUS
-        */
-
-        if (status === "active") {
-            query.banned = {
-                $ne: true,
-            };
-        }
-
-        if (status === "banned") {
-            query.banned = true;
-        }
-
-        /*
-        ========================================
-        SORT
-        ========================================
-        */
-
-        let sortOption = {
-            createdAt: -1,
-        };
-
-        if (sort === "oldest") {
-            sortOption = {
-                createdAt: 1,
-            };
-        }
-
-        if (sort === "highest") {
-            sortOption = {
-                wallet: -1,
-            };
-        }
-
-        if (sort === "lowest") {
-            sortOption = {
-                wallet: 1,
-            };
-        }
-
-        /*
-        ========================================
-        GET USERS + COUNT
-        ========================================
-        */
-
-        const [
-            users,
-            totalUsers,
-        ] = await Promise.all([
-
-            User.find(
-                query,
-                {
-                    username: 1,
-                    email: 1,
-                    wallet: 1,
-                    verified: 1,
-                    banned: 1,
-                    createdAt: 1,
-                }
-            )
-                .sort(sortOption)
-                .skip(skip)
-                .limit(limitNumber)
-                .lean(),
-
-            User.countDocuments(query),
-
-        ]);
-
-        /*
-        ========================================
-        GET TOTAL DEPOSITS
-        ========================================
-        */
-
-        const userIds =
-            users.map((user) => user._id);
-
-        const deposits =
-            await Transaction.aggregate([
-
-                {
-                    $match: {
-                        user: {
-                            $in: userIds,
-                        },
-
-                        type: "DEPOSIT",
+// /*
+// ========================================
+// GET ADMIN USERS
+// ========================================
+// */
+
+// exports.getUsers = async (req, res) => {
+//     try {
+//         const {
+//             search = "",
+//             status = "all",
+//             sort = "newest",
+//             page = 1,
+//             limit = 10,
+//         } = req.query;
+
+//         const pageNumber = Math.max(
+//             Number(page) || 1,
+//             1
+//         );
+
+//         const limitNumber = Math.max(
+//             Number(limit) || 10,
+//             1
+//         );
+
+//         const skip =
+//             (pageNumber - 1) *
+//             limitNumber;
+
+//         /*
+//         ========================================
+//         USER QUERY
+//         ========================================
+//         */
+
+//         const query = {
+//             role: "user",
+//         };
+
+//         /*
+//         SEARCH
+//         */
+
+//         if (search.trim()) {
+//             const searchRegex = new RegExp(
+//                 search.trim(),
+//                 "i"
+//             );
+
+//             query.$or = [
+//                 {
+//                     username: searchRegex,
+//                 },
+//                 {
+//                     email: searchRegex,
+//                 },
+//             ];
+//         }
+
+//         /*
+//         STATUS
+//         */
+
+//         if (status === "active") {
+//             query.banned = {
+//                 $ne: true,
+//             };
+//         }
+
+//         if (status === "banned") {
+//             query.banned = true;
+//         }
+
+//         /*
+//         ========================================
+//         SORT
+//         ========================================
+//         */
+
+//         let sortOption = {
+//             createdAt: -1,
+//         };
+
+//         if (sort === "oldest") {
+//             sortOption = {
+//                 createdAt: 1,
+//             };
+//         }
+
+//         if (sort === "highest") {
+//             sortOption = {
+//                 wallet: -1,
+//             };
+//         }
+
+//         if (sort === "lowest") {
+//             sortOption = {
+//                 wallet: 1,
+//             };
+//         }
+
+//         /*
+//         ========================================
+//         GET USERS + COUNT
+//         ========================================
+//         */
+
+//         const [
+//             users,
+//             totalUsers,
+//         ] = await Promise.all([
+
+//             User.find(
+//                 query,
+//                 {
+//                     username: 1,
+//                     email: 1,
+//                     wallet: 1,
+//                     verified: 1,
+//                     banned: 1,
+//                     createdAt: 1,
+//                 }
+//             )
+//                 .sort(sortOption)
+//                 .skip(skip)
+//                 .limit(limitNumber)
+//                 .lean(),
+
+//             User.countDocuments(query),
+
+//         ]);
+
+//         /*
+//         ========================================
+//         GET TOTAL DEPOSITS
+//         ========================================
+//         */
+
+//         const userIds =
+//             users.map((user) => user._id);
+
+//         const deposits =
+//             await Transaction.aggregate([
+
+//                 {
+//                     $match: {
+//                         user: {
+//                             $in: userIds,
+//                         },
+
+//                         type: "DEPOSIT",
 
-                        status: "SUCCESS",
-                    },
-                },
+//                         status: "SUCCESS",
+//                     },
+//                 },
 
-                {
-                    $group: {
-                        _id: "$user",
+//                 {
+//                     $group: {
+//                         _id: "$user",
 
-                        totalDeposit: {
-                            $sum: "$amount",
-                        },
-                    },
-                },
+//                         totalDeposit: {
+//                             $sum: "$amount",
+//                         },
+//                     },
+//                 },
 
-            ]);
+//             ]);
 
-        /*
-        ========================================
-        MAP DEPOSITS
-        ========================================
-        */
+//         /*
+//         ========================================
+//         MAP DEPOSITS
+//         ========================================
+//         */
 
-        const depositMap = {};
+//         const depositMap = {};
 
-        deposits.forEach((item) => {
+//         deposits.forEach((item) => {
 
-            depositMap[
-                item._id.toString()
-            ] = item.totalDeposit;
+//             depositMap[
+//                 item._id.toString()
+//             ] = item.totalDeposit;
 
-        });
+//         });
 
-        /*
-        ========================================
-        FORMAT USERS
-        ========================================
-        */
+//         /*
+//         ========================================
+//         FORMAT USERS
+//         ========================================
+//         */
 
-        const formattedUsers =
-            users.map((user) => ({
+//         const formattedUsers =
+//             users.map((user) => ({
 
-                id: user._id,
+//                 id: user._id,
 
-                username:
-                    user.username,
+//                 username:
+//                     user.username,
 
-                email:
-                    user.email,
+//                 email:
+//                     user.email,
 
-                balance:
-                    Number(user.wallet || 0),
+//                 balance:
+//                     Number(user.wallet || 0),
 
-                totalDeposit:
-                    Number(
-                        depositMap[
-                            user._id.toString()
-                        ] || 0
-                    ),
+//                 totalDeposit:
+//                     Number(
+//                         depositMap[
+//                             user._id.toString()
+//                         ] || 0
+//                     ),
 
-                banned:
-                    user.banned === true,
+//                 banned:
+//                     user.banned === true,
 
-                verified:
-                    user.verified === true,
+//                 verified:
+//                     user.verified === true,
 
-                joined:
-                    user.createdAt,
+//                 joined:
+//                     user.createdAt,
 
-            }));
+//             }));
 
-        /*
-        ========================================
-        PAGINATION
-        ========================================
-        */
+//         /*
+//         ========================================
+//         PAGINATION
+//         ========================================
+//         */
 
-        const totalPages =
-            Math.ceil(
-                totalUsers /
-                limitNumber
-            );
+//         const totalPages =
+//             Math.ceil(
+//                 totalUsers /
+//                 limitNumber
+//             );
 
-        /*
-        ========================================
-        RESPONSE
-        ========================================
-        */
+//         /*
+//         ========================================
+//         RESPONSE
+//         ========================================
+//         */
 
-        return res.status(200).json({
+//         return res.status(200).json({
 
-            success: true,
+//             success: true,
 
-            users: formattedUsers,
+//             users: formattedUsers,
 
-            pagination: {
-                currentPage:
-                    pageNumber,
+//             pagination: {
+//                 currentPage:
+//                     pageNumber,
 
-                totalPages,
+//                 totalPages,
 
-                totalUsers,
+//                 totalUsers,
 
-                limit:
-                    limitNumber,
-            },
+//                 limit:
+//                     limitNumber,
+//             },
 
-        });
+//         });
 
-    } catch (error) {
+//     } catch (error) {
 
-        console.error(
-            "Get admin users error:",
-            error
-        );
+//         console.error(
+//             "Get admin users error:",
+//             error
+//         );
 
-        return res.status(500).json({
+//         return res.status(500).json({
 
-            success: false,
+//             success: false,
 
-            message:
-                "Failed to fetch users",
+//             message:
+//                 "Failed to fetch users",
 
-        });
-    }
-};
+//         });
+//     }
+// };
 
 
-/*
-========================================
-TOGGLE USER BAN
-========================================
-*/
+// /*
+// ========================================
+// TOGGLE USER BAN
+// ========================================
+// */
 
-exports.toggleUserBan = async (req, res) => {
-    try {
+// exports.toggleUserBan = async (req, res) => {
+//     try {
 
-        const { userId } = req.params;
+//         const { userId } = req.params;
 
-        const user =
-            await User.findOne({
-                _id: userId,
-                role: "user",
-            });
+//         const user =
+//             await User.findOne({
+//                 _id: userId,
+//                 role: "user",
+//             });
 
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: "User not found",
-            });
-        }
+//         if (!user) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: "User not found",
+//             });
+//         }
 
-        user.banned =
-            !user.banned;
+//         user.banned =
+//             !user.banned;
 
-        await user.save();
+//         await user.save();
 
-        return res.status(200).json({
+//         return res.status(200).json({
 
-            success: true,
+//             success: true,
 
-            message:
-                user.banned
-                    ? "User banned successfully"
-                    : "User unbanned successfully",
+//             message:
+//                 user.banned
+//                     ? "User banned successfully"
+//                     : "User unbanned successfully",
 
-            user: {
-                id: user._id,
-                banned: user.banned,
-            },
+//             user: {
+//                 id: user._id,
+//                 banned: user.banned,
+//             },
 
-        });
+//         });
 
-    } catch (error) {
+//     } catch (error) {
 
-        console.error(
-            "Toggle user ban error:",
-            error
-        );
+//         console.error(
+//             "Toggle user ban error:",
+//             error
+//         );
 
-        return res.status(500).json({
+//         return res.status(500).json({
 
-            success: false,
+//             success: false,
 
-            message:
-                "Failed to update user status",
+//             message:
+//                 "Failed to update user status",
 
-        });
-    }
-};
+//         });
+//     }
+// };
 
-/*
-========================================
-DELETE USER
-========================================
-*/
+// /*
+// ========================================
+// DELETE USER
+// ========================================
+// */
 
-exports.deleteUser = async (req, res) => {
-    try {
+// exports.deleteUser = async (req, res) => {
+//     try {
 
-        const { userId } = req.params;
+//         const { userId } = req.params;
 
-        const user =
-            await User.findOneAndDelete({
-                _id: userId,
-                role: "user",
-            });
+//         const user =
+//             await User.findOneAndDelete({
+//                 _id: userId,
+//                 role: "user",
+//             });
 
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: "User not found",
-            });
-        }
+//         if (!user) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: "User not found",
+//             });
+//         }
 
-        return res.status(200).json({
+//         return res.status(200).json({
 
-            success: true,
+//             success: true,
 
-            message:
-                "User deleted successfully",
+//             message:
+//                 "User deleted successfully",
 
-        });
+//         });
 
-    } catch (error) {
+//     } catch (error) {
 
-        console.error(
-            "Delete user error:",
-            error
-        );
+//         console.error(
+//             "Delete user error:",
+//             error
+//         );
 
-        return res.status(500).json({
+//         return res.status(500).json({
 
-            success: false,
+//             success: false,
 
-            message:
-                "Failed to delete user",
+//             message:
+//                 "Failed to delete user",
 
-        });
-    }
-};
+//         });
+//     }
+// };
