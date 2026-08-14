@@ -551,3 +551,70 @@ exports.getUsers = async (req, res) => {
         });
     }
 };
+
+/*
+========================================
+GET ADMIN USER STATS
+========================================
+*/
+
+exports.getUserStats = async (req, res) => {
+    try {
+
+        const [
+            totalUsers,
+            fundedUsers,
+            activeUsers,
+            bannedUsers,
+        ] = await Promise.all([
+
+            User.countDocuments({
+                role: "user",
+            }),
+
+            User.countDocuments({
+                role: "user",
+                wallet: {
+                    $gt: 0,
+                },
+            }),
+
+            User.countDocuments({
+                role: "user",
+                banned: {
+                    $ne: true,
+                },
+            }),
+
+            User.countDocuments({
+                role: "user",
+                banned: true,
+            }),
+
+        ]);
+
+        return res.status(200).json({
+            success: true,
+
+            stats: {
+                totalUsers,
+                fundedUsers,
+                activeUsers,
+                bannedUsers,
+            },
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Get user stats error:",
+            error
+        );
+
+        return res.status(500).json({
+            success: false,
+            message:
+                "Failed to fetch user statistics",
+        });
+    }
+};
