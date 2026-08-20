@@ -27,7 +27,7 @@ const allowedOrigins = [
   "https://numio-one.vercel.app",
   "https://www.numioverify.store",
   "https://numioverify.store",
-  "https://numio-admin.vercel.app",
+  "https://numio-admin.vercel.app", 
 ];
 
 app.use(
