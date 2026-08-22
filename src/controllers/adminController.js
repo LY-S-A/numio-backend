@@ -1007,6 +1007,8 @@ GET ADMIN ORDER STATS
 exports.getOrderStats = async (req, res) => {
     try {
 
+        console.log("Fetching admin order stats...");
+
         const [
             totalOrders,
             completedOrders,
@@ -1016,7 +1018,7 @@ exports.getOrderStats = async (req, res) => {
 
             /*
             ================================
-            TOTAL
+            TOTAL ORDERS
             ================================
             */
 
@@ -1029,17 +1031,23 @@ exports.getOrderStats = async (req, res) => {
             */
 
             NumberOrder.countDocuments({
-                status: "finished",
+                status: "FINISHED",
             }),
 
             /*
             ================================
             ACTIVE
+            PENDING + RECEIVED
             ================================
             */
 
             NumberOrder.countDocuments({
-                status: "active",
+                status: {
+                    $in: [
+                        "PENDING",
+                        "RECEIVED",
+                    ],
+                },
             }),
 
             /*
@@ -1049,7 +1057,7 @@ exports.getOrderStats = async (req, res) => {
             */
 
             NumberOrder.countDocuments({
-                status: "cancelled",
+                status: "CANCELLED",
             }),
 
         ]);
@@ -1057,7 +1065,7 @@ exports.getOrderStats = async (req, res) => {
 
         /*
         ========================================
-        COMPLETION RATE
+        PERCENTAGES
         ========================================
         */
 
@@ -1073,12 +1081,6 @@ exports.getOrderStats = async (req, res) => {
                 : 0;
 
 
-        /*
-        ========================================
-        ACTIVE RATE
-        ========================================
-        */
-
         const activeRate =
             totalOrders > 0
                 ? Number(
@@ -1091,12 +1093,6 @@ exports.getOrderStats = async (req, res) => {
                 : 0;
 
 
-        /*
-        ========================================
-        CANCELLED RATE
-        ========================================
-        */
-
         const cancelledRate =
             totalOrders > 0
                 ? Number(
@@ -1108,6 +1104,23 @@ exports.getOrderStats = async (req, res) => {
                 )
                 : 0;
 
+
+        console.log(
+            "Admin order stats:",
+            {
+                totalOrders,
+                completedOrders,
+                activeOrders,
+                cancelledOrders,
+            }
+        );
+
+
+        /*
+        ========================================
+        RESPONSE
+        ========================================
+        */
 
         return res.status(200).json({
 
@@ -1151,7 +1164,6 @@ exports.getOrderStats = async (req, res) => {
 
     }
 };
-
 
 /*
 ========================================
