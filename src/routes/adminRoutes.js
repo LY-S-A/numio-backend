@@ -2,15 +2,21 @@
 
 // const router = express.Router();
 
+
 // const {
 //     adminLogin,
 //     getDashboardStats,
+
 //     getUserCount,
 //     getUserStats,
 //     getUsers,
 //     toggleUserBan,
 //     deleteUser,
 //     sendMailToUsers,
+
+//     getOrderStats,
+//     getOrders,
+
 // } = require("../controllers/adminController");
 
 // const {
@@ -115,7 +121,7 @@
 // );
 
 
-// /* 
+// /*
 // ========================================
 // SEND EMAIL TO ALL USERS
 // ========================================
@@ -126,6 +132,34 @@
 //     protect,
 //     adminOnly,
 //     sendMailToUsers
+// );
+
+
+// /*
+// ========================================
+// ORDER STATS
+// ========================================
+// */
+
+// router.get(
+//     "/orders/stats",
+//     protect,
+//     adminOnly,
+//     getOrderStats
+// );
+
+
+// /*
+// ========================================
+// GET ORDERS
+// ========================================
+// */
+
+// router.get(
+//     "/orders",
+//     protect,
+//     adminOnly,
+//     getOrders
 // );
 
 
@@ -149,6 +183,9 @@ const {
 
     getOrderStats,
     getOrders,
+
+    getTransactionStats,
+    getTransactions,
 
 } = require("../controllers/adminController");
 
@@ -293,6 +330,34 @@ router.get(
     protect,
     adminOnly,
     getOrders
+);
+
+
+/*
+========================================
+TRANSACTION STATS
+========================================
+*/
+
+router.get(
+    "/transactions/stats",
+    protect,
+    adminOnly,
+    getTransactionStats
+);
+
+
+/*
+========================================
+GET TRANSACTIONS
+========================================
+*/
+
+router.get(
+    "/transactions",
+    protect,
+    adminOnly,
+    getTransactions
 );
 
 
