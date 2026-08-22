@@ -1545,3 +1545,417 @@ exports.getOrders = async (req, res) => {
 
     }
 };
+
+/*
+========================================
+GET ADMIN TRANSACTION STATS
+========================================
+*/
+
+exports.getTransactionStats = async (req, res) => {
+    try {
+        const [
+            totalTransactions,
+            successfulTransactions,
+            pendingTransactions,
+            failedTransactions,
+        ] = await Promise.all([
+            Transaction.countDocuments(),
+
+            Transaction.countDocuments({
+                status: "SUCCESS",
+            }),
+
+            Transaction.countDocuments({
+                status: "PENDING",
+            }),
+
+            Transaction.countDocuments({
+                status: "FAILED",
+            }),
+        ]);
+
+        const successRate =
+            totalTransactions > 0
+                ? Number(
+                    (
+                        (successfulTransactions /
+                            totalTransactions) *
+                        100
+                    ).toFixed(1)
+                )
+                : 0;
+
+        const pendingRate =
+            totalTransactions > 0
+                ? Number(
+                    (
+                        (pendingTransactions /
+                            totalTransactions) *
+                        100
+                    ).toFixed(1)
+                )
+                : 0;
+
+        const failedRate =
+            totalTransactions > 0
+                ? Number(
+                    (
+                        (failedTransactions /
+                            totalTransactions) *
+                        100
+                    ).toFixed(1)
+                )
+                : 0;
+
+        return res.status(200).json({
+            success: true,
+
+            stats: {
+                totalTransactions,
+                successfulTransactions,
+                pendingTransactions,
+                failedTransactions,
+
+                successRate,
+                pendingRate,
+                failedRate,
+            },
+        });
+
+    } catch (error) {
+        console.error(
+            "Get transaction stats error:",
+            error
+        );
+
+        return res.status(500).json({
+            success: false,
+            message:
+                "Failed to fetch transaction statistics",
+        });
+    }
+};
+
+
+/*
+========================================
+GET ADMIN TRANSACTIONS
+========================================
+*/
+
+exports.getTransactions = async (req, res) => {
+    try {
+        const {
+            search = "",
+            status = "all",
+            type = "all",
+            sort = "newest",
+            page = 1,
+            limit = 10,
+        } = req.query;
+
+        /*
+        ========================================
+        PAGINATION
+        ========================================
+        */
+
+        const pageNumber = Math.max(
+            Number(page) || 1,
+            1
+        );
+
+        const limitNumber = Math.max(
+            Number(limit) || 10,
+            1
+        );
+
+        const skip =
+            (pageNumber - 1) *
+            limitNumber;
+
+
+        /*
+        ========================================
+        BASE QUERY
+        ========================================
+        */
+
+        const query = {};
+
+
+        /*
+        ========================================
+        STATUS FILTER
+        ========================================
+        */
+
+        if (
+            status &&
+            status !== "all"
+        ) {
+            query.status =
+                status.toUpperCase();
+        }
+
+
+        /*
+        ========================================
+        TYPE FILTER
+        ========================================
+        */
+
+        if (
+            type &&
+            type !== "all"
+        ) {
+            query.type =
+                type.toUpperCase();
+        }
+
+
+        /*
+        ========================================
+        SORT
+        ========================================
+        */
+
+        let sortOption = {
+            createdAt: -1,
+        };
+
+        if (sort === "oldest") {
+            sortOption = {
+                createdAt: 1,
+            };
+        }
+
+        if (sort === "highest") {
+            sortOption = {
+                amount: -1,
+            };
+        }
+
+        if (sort === "lowest") {
+            sortOption = {
+                amount: 1,
+            };
+        }
+
+
+        /*
+        ========================================
+        SEARCH
+        ========================================
+        */
+
+        let transactionQuery = Transaction.find(
+            query
+        );
+
+
+        /*
+        SEARCH BY REFERENCE
+        OR USERNAME
+        OR EMAIL
+        */
+
+        if (search.trim()) {
+            const searchRegex =
+                new RegExp(
+                    search.trim(),
+                    "i"
+                );
+
+            /*
+            ========================================
+            FIND USERS MATCHING SEARCH
+            ========================================
+            */
+
+            const matchingUsers =
+                await User.find(
+                    {
+                        role: "user",
+                        $or: [
+                            {
+                                username:
+                                    searchRegex,
+                            },
+                            {
+                                email:
+                                    searchRegex,
+                            },
+                        ],
+                    },
+                    {
+                        _id: 1,
+                    }
+                ).lean();
+
+            const userIds =
+                matchingUsers.map(
+                    (user) => user._id
+                );
+
+            query.$or = [
+                {
+                    reference:
+                        searchRegex,
+                },
+                {
+                    user: {
+                        $in: userIds,
+                    },
+                },
+            ];
+
+            transactionQuery =
+                Transaction.find(query);
+        }
+
+
+        /*
+        ========================================
+        GET TRANSACTIONS
+        ========================================
+        */
+
+        const [
+            transactions,
+            totalTransactions,
+        ] = await Promise.all([
+
+            transactionQuery
+                .populate(
+                    "user",
+                    "username email"
+                )
+                .sort(sortOption)
+                .skip(skip)
+                .limit(limitNumber)
+                .lean(),
+
+            Transaction.countDocuments(
+                query
+            ),
+        ]);
+
+
+        /*
+        ========================================
+        FORMAT TRANSACTIONS
+        ========================================
+        */
+
+        const formattedTransactions =
+            transactions.map(
+                (transaction) => ({
+                    id:
+                        transaction._id,
+
+                    reference:
+                        transaction.reference,
+
+                    username:
+                        transaction.user?.username ||
+                        "—",
+
+                    email:
+                        transaction.user?.email ||
+                        "—",
+
+                    amount:
+                        Number(
+                            transaction.amount || 0
+                        ),
+
+                    currency:
+                        transaction.currency ||
+                        "NGN",
+
+                    provider:
+                        transaction.provider ||
+                        "—",
+
+                    type:
+                        transaction.type ||
+                        "—",
+
+                    status:
+                        transaction.status ||
+                        "—",
+
+                    gatewayTransactionId:
+                        transaction.gatewayTransactionId ||
+                        null,
+
+                    paymentMethod:
+                        transaction.paymentMethod ||
+                        null,
+
+                    description:
+                        transaction.description ||
+                        "—",
+
+                    createdAt:
+                        transaction.createdAt,
+
+                    updatedAt:
+                        transaction.updatedAt,
+                })
+            );
+
+
+        /*
+        ========================================
+        TOTAL PAGES
+        ========================================
+        */
+
+        const totalPages =
+            Math.ceil(
+                totalTransactions /
+                limitNumber
+            );
+
+
+        /*
+        ========================================
+        RESPONSE
+        ========================================
+        */
+
+        return res.status(200).json({
+            success: true,
+
+            transactions:
+                formattedTransactions,
+
+            pagination: {
+                currentPage:
+                    pageNumber,
+
+                totalPages,
+
+                totalTransactions,
+
+                limit:
+                    limitNumber,
+            },
+        });
+
+    } catch (error) {
+        console.error(
+            "Get admin transactions error:",
+            error
+        );
+
+        return res.status(500).json({
+            success: false,
+            message:
+                "Failed to fetch transactions",
+        });
+    }
+};
