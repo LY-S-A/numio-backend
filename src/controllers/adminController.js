@@ -1172,7 +1172,6 @@ GET ADMIN ORDERS
 */
 
 exports.getOrders = async (req, res) => {
-
     try {
 
         const {
@@ -1197,13 +1196,11 @@ exports.getOrders = async (req, res) => {
                 1
             );
 
-
         const limitNumber =
             Math.max(
                 Number(limit) || 10,
                 1
             );
-
 
         const skip =
             (pageNumber - 1) *
@@ -1233,26 +1230,20 @@ exports.getOrders = async (req, res) => {
                     "i"
                 );
 
-
             query.$or = [
-
                 {
                     orderId:
                         searchRegex,
                 },
-
                 {
                     phone:
                         searchRegex,
                 },
-
                 {
                     service:
                         searchRegex,
                 },
-
             ];
-
         }
 
 
@@ -1262,9 +1253,7 @@ exports.getOrders = async (req, res) => {
         ========================================
         */
 
-        if (
-            status !== "all"
-        ) {
+        if (status !== "all") {
 
             query.status =
                 status;
@@ -1278,9 +1267,7 @@ exports.getOrders = async (req, res) => {
         ========================================
         */
 
-        if (
-            service !== "all"
-        ) {
+        if (service !== "all") {
 
             query.service =
                 service;
@@ -1298,10 +1285,7 @@ exports.getOrders = async (req, res) => {
             createdAt: -1,
         };
 
-
-        if (
-            sort === "oldest"
-        ) {
+        if (sort === "oldest") {
 
             sortOption = {
                 createdAt: 1,
@@ -1309,10 +1293,7 @@ exports.getOrders = async (req, res) => {
 
         }
 
-
-        if (
-            sort === "highest"
-        ) {
+        if (sort === "highest") {
 
             sortOption = {
                 price: -1,
@@ -1320,10 +1301,7 @@ exports.getOrders = async (req, res) => {
 
         }
 
-
-        if (
-            sort === "lowest"
-        ) {
+        if (sort === "lowest") {
 
             sortOption = {
                 price: 1,
@@ -1343,13 +1321,33 @@ exports.getOrders = async (req, res) => {
             totalOrders,
         ] = await Promise.all([
 
-            NumberOrder.find(
-                query
-            )
+            NumberOrder.find(query)
+
+                /*
+                ========================================
+                POPULATE USER
+                ========================================
+                */
+
+                .populate(
+                    "user",
+                    "username email"
+                )
+
                 .sort(sortOption)
+
                 .skip(skip)
+
                 .limit(limitNumber)
+
                 .lean(),
+
+
+            /*
+            ========================================
+            TOTAL ORDERS
+            ========================================
+            */
 
             NumberOrder.countDocuments(
                 query
@@ -1368,37 +1366,117 @@ exports.getOrders = async (req, res) => {
             orders.map(
                 (order) => ({
 
+                    /*
+                    ================================
+                    ORDER ID
+                    ================================
+                    */
+
                     id:
                         order._id,
 
                     orderId:
                         order.orderId,
 
+
+                    /*
+                    ================================
+                    USER
+                    ================================
+                    */
+
+                    username:
+                        order.user?.username ||
+                        "—",
+
+                    email:
+                        order.user?.email ||
+                        "—",
+
+
+                    /*
+                    ================================
+                    NUMBER
+                    ================================
+                    */
+
                     phone:
-                        order.phone,
+                        order.phone ||
+                        "—",
+
+
+                    /*
+                    ================================
+                    SERVICE
+                    ================================
+                    */
 
                     country:
-                        order.country,
+                        order.country ||
+                        "—",
 
                     service:
-                        order.service,
+                        order.service ||
+                        "—",
 
                     operator:
-                        order.operator,
+                        order.operator ||
+                        "—",
+
+
+                    /*
+                    ================================
+                    PRICE
+                    ================================
+                    */
 
                     price:
                         Number(
                             order.price || 0
                         ),
 
+
+                    /*
+                    ================================
+                    STATUS
+                    ================================
+                    */
+
                     status:
-                        order.status,
+                        order.status ||
+                        "UNKNOWN",
+
+
+                    /*
+                    ================================
+                    EXPIRATION
+                    ================================
+                    */
 
                     expires:
-                        order.expires,
+                        order.expires ||
+                        null,
+
+
+                    /*
+                    ================================
+                    SMS / OTP
+                    ================================
+                    */
 
                     sms:
-                        order.sms || [],
+                        Array.isArray(
+                            order.sms
+                        )
+                            ? order.sms
+                            : [],
+
+
+                    /*
+                    ================================
+                    CREATED DATE
+                    ================================
+                    */
 
                     createdAt:
                         order.createdAt,
@@ -1409,7 +1487,7 @@ exports.getOrders = async (req, res) => {
 
         /*
         ========================================
-        PAGINATION
+        TOTAL PAGES
         ========================================
         */
 
@@ -1466,5 +1544,4 @@ exports.getOrders = async (req, res) => {
         });
 
     }
-
 };
