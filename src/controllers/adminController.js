@@ -997,3 +997,462 @@ exports.sendMailToUsers = async (req, res) => {
         });
     }
 };
+
+/*
+========================================
+GET ADMIN ORDER STATS
+========================================
+*/
+
+exports.getOrderStats = async (req, res) => {
+    try {
+
+        const [
+            totalOrders,
+            completedOrders,
+            activeOrders,
+            cancelledOrders,
+        ] = await Promise.all([
+
+            /*
+            ================================
+            TOTAL
+            ================================
+            */
+
+            NumberOrder.countDocuments(),
+
+            /*
+            ================================
+            COMPLETED
+            ================================
+            */
+
+            NumberOrder.countDocuments({
+                status: "finished",
+            }),
+
+            /*
+            ================================
+            ACTIVE
+            ================================
+            */
+
+            NumberOrder.countDocuments({
+                status: "active",
+            }),
+
+            /*
+            ================================
+            CANCELLED
+            ================================
+            */
+
+            NumberOrder.countDocuments({
+                status: "cancelled",
+            }),
+
+        ]);
+
+
+        /*
+        ========================================
+        COMPLETION RATE
+        ========================================
+        */
+
+        const completionRate =
+            totalOrders > 0
+                ? Number(
+                    (
+                        (completedOrders /
+                            totalOrders) *
+                        100
+                    ).toFixed(1)
+                )
+                : 0;
+
+
+        /*
+        ========================================
+        ACTIVE RATE
+        ========================================
+        */
+
+        const activeRate =
+            totalOrders > 0
+                ? Number(
+                    (
+                        (activeOrders /
+                            totalOrders) *
+                        100
+                    ).toFixed(1)
+                )
+                : 0;
+
+
+        /*
+        ========================================
+        CANCELLED RATE
+        ========================================
+        */
+
+        const cancelledRate =
+            totalOrders > 0
+                ? Number(
+                    (
+                        (cancelledOrders /
+                            totalOrders) *
+                        100
+                    ).toFixed(1)
+                )
+                : 0;
+
+
+        return res.status(200).json({
+
+            success: true,
+
+            stats: {
+
+                totalOrders,
+
+                completedOrders,
+
+                activeOrders,
+
+                cancelledOrders,
+
+                completionRate,
+
+                activeRate,
+
+                cancelledRate,
+
+            },
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Get admin order stats error:",
+            error
+        );
+
+        return res.status(500).json({
+
+            success: false,
+
+            message:
+                "Failed to fetch order statistics",
+
+        });
+
+    }
+};
+
+
+/*
+========================================
+GET ADMIN ORDERS
+========================================
+*/
+
+exports.getOrders = async (req, res) => {
+
+    try {
+
+        const {
+            search = "",
+            status = "all",
+            service = "all",
+            sort = "newest",
+            page = 1,
+            limit = 10,
+        } = req.query;
+
+
+        /*
+        ========================================
+        PAGINATION
+        ========================================
+        */
+
+        const pageNumber =
+            Math.max(
+                Number(page) || 1,
+                1
+            );
+
+
+        const limitNumber =
+            Math.max(
+                Number(limit) || 10,
+                1
+            );
+
+
+        const skip =
+            (pageNumber - 1) *
+            limitNumber;
+
+
+        /*
+        ========================================
+        BASE QUERY
+        ========================================
+        */
+
+        const query = {};
+
+
+        /*
+        ========================================
+        SEARCH
+        ========================================
+        */
+
+        if (search.trim()) {
+
+            const searchRegex =
+                new RegExp(
+                    search.trim(),
+                    "i"
+                );
+
+
+            query.$or = [
+
+                {
+                    orderId:
+                        searchRegex,
+                },
+
+                {
+                    phone:
+                        searchRegex,
+                },
+
+                {
+                    service:
+                        searchRegex,
+                },
+
+            ];
+
+        }
+
+
+        /*
+        ========================================
+        STATUS FILTER
+        ========================================
+        */
+
+        if (
+            status !== "all"
+        ) {
+
+            query.status =
+                status;
+
+        }
+
+
+        /*
+        ========================================
+        SERVICE FILTER
+        ========================================
+        */
+
+        if (
+            service !== "all"
+        ) {
+
+            query.service =
+                service;
+
+        }
+
+
+        /*
+        ========================================
+        SORT
+        ========================================
+        */
+
+        let sortOption = {
+            createdAt: -1,
+        };
+
+
+        if (
+            sort === "oldest"
+        ) {
+
+            sortOption = {
+                createdAt: 1,
+            };
+
+        }
+
+
+        if (
+            sort === "highest"
+        ) {
+
+            sortOption = {
+                price: -1,
+            };
+
+        }
+
+
+        if (
+            sort === "lowest"
+        ) {
+
+            sortOption = {
+                price: 1,
+            };
+
+        }
+
+
+        /*
+        ========================================
+        GET ORDERS
+        ========================================
+        */
+
+        const [
+            orders,
+            totalOrders,
+        ] = await Promise.all([
+
+            NumberOrder.find(
+                query
+            )
+                .sort(sortOption)
+                .skip(skip)
+                .limit(limitNumber)
+                .lean(),
+
+            NumberOrder.countDocuments(
+                query
+            ),
+
+        ]);
+
+
+        /*
+        ========================================
+        FORMAT ORDERS
+        ========================================
+        */
+
+        const formattedOrders =
+            orders.map(
+                (order) => ({
+
+                    id:
+                        order._id,
+
+                    orderId:
+                        order.orderId,
+
+                    phone:
+                        order.phone,
+
+                    country:
+                        order.country,
+
+                    service:
+                        order.service,
+
+                    operator:
+                        order.operator,
+
+                    price:
+                        Number(
+                            order.price || 0
+                        ),
+
+                    status:
+                        order.status,
+
+                    expires:
+                        order.expires,
+
+                    sms:
+                        order.sms || [],
+
+                    createdAt:
+                        order.createdAt,
+
+                })
+            );
+
+
+        /*
+        ========================================
+        PAGINATION
+        ========================================
+        */
+
+        const totalPages =
+            Math.ceil(
+                totalOrders /
+                limitNumber
+            );
+
+
+        /*
+        ========================================
+        RESPONSE
+        ========================================
+        */
+
+        return res.status(200).json({
+
+            success: true,
+
+            orders:
+                formattedOrders,
+
+            pagination: {
+
+                currentPage:
+                    pageNumber,
+
+                totalPages,
+
+                totalOrders,
+
+                limit:
+                    limitNumber,
+
+            },
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Get admin orders error:",
+            error
+        );
+
+        return res.status(500).json({
+
+            success: false,
+
+            message:
+                "Failed to fetch orders",
+
+        });
+
+    }
+
+};
